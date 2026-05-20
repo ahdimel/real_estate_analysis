@@ -9,6 +9,7 @@ import PropertyForm, { FormData, EMPTY_FORM } from "@/components/PropertyForm";
 function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
   const str = (v: unknown) => (v == null ? "" : String(v));
   return {
+    mls_id: str(prop.mls_id),
     source_url: str(prop.source_url),
     address_street: str(prop.address_street),
     address_city: str(prop.address_city),
@@ -25,6 +26,7 @@ function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
     mortgage_term: str(prop.mortgage_term),
     down_payment: str(prop.down_payment),
     closing_costs: str(prop.closing_costs),
+    pmi_monthly: str(prop.pmi_monthly),
     rent_lower: str(prop.rent_lower),
     rent_upper: str(prop.rent_upper),
     property_tax_annual: str(prop.property_tax_annual),

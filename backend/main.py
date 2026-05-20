@@ -1,13 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import create_tables
-from backend.routes import auth, properties
+from backend.routes import auth, properties, analysis, market
 
 create_tables()
 
 app = FastAPI(title="REI API", version="0.1.0")
 app.include_router(auth.router)
 app.include_router(properties.router)
+app.include_router(analysis.router)
+app.include_router(market.router)
 
 app.add_middleware(
     CORSMiddleware,

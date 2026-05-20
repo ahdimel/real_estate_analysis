@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class PropertyCreate(BaseModel):
     # House information
+    mls_id: Optional[str] = None
     source_url: Optional[str] = None
     address_street: str
     address_city: str
@@ -24,6 +25,7 @@ class PropertyCreate(BaseModel):
     mortgage_term: int = Field(ge=1, le=45)
     down_payment: Decimal = Field(ge=Decimal("0.00"), le=Decimal("100.00"))
     closing_costs: Decimal = Field(ge=Decimal("0.00"), le=Decimal("9999999.99"))
+    pmi_monthly: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"), le=Decimal("9999.99"))
 
     # Property management
     rent_lower: Decimal = Field(ge=Decimal("0.00"), le=Decimal("99999.99"))
@@ -51,6 +53,7 @@ class PropertyCreate(BaseModel):
 
 class PropertyOut(BaseModel):
     id: int
+    mls_id: Optional[str]
     source_url: Optional[str]
     address_street: str
     address_city: str
@@ -67,6 +70,7 @@ class PropertyOut(BaseModel):
     mortgage_term: int
     down_payment: float
     closing_costs: float
+    pmi_monthly: Optional[float]
     rent_lower: float
     rent_upper: float
     property_tax_annual: float

@@ -11,12 +11,21 @@ from backend.schemas.property import PropertyCreate, PropertyOut
 router = APIRouter(prefix="/properties", tags=["properties"])
 
 
+PROPERTY_LIMIT = 10
+
+
 @router.post("", response_model=PropertyOut, status_code=status.HTTP_201_CREATED)
 def create_property(
     payload: PropertyCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    count = db.query(Property).filter(Property.user_id == current_user.id).count()
+    if count >= PROPERTY_LIMIT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Property limit of {PROPERTY_LIMIT} reached. Delete a property to add a new one.",
+        )
     prop = Property(user_id=current_user.id, **payload.model_dump())
     db.add(prop)
     db.commit()

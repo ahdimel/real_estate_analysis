@@ -10,6 +10,7 @@ const US_STATES = [
 ];
 
 export const EMPTY_FORM = {
+  mls_id: "",
   source_url: "",
   address_street: "",
   address_city: "",
@@ -26,6 +27,7 @@ export const EMPTY_FORM = {
   mortgage_term: "",
   down_payment: "",
   closing_costs: "",
+  pmi_monthly: "",
   rent_lower: "",
   rent_upper: "",
   property_tax_annual: "",
@@ -56,6 +58,7 @@ export function buildPayload(form: FormData) {
     annual_interest_rate: parseFloat(form.annual_interest_rate),
     down_payment: parseFloat(form.down_payment),
     closing_costs: parseFloat(form.closing_costs),
+    pmi_monthly: form.pmi_monthly ? parseFloat(form.pmi_monthly) : null,
     rent_lower: parseFloat(form.rent_lower),
     rent_upper: parseFloat(form.rent_upper),
     property_tax_annual: parseFloat(form.property_tax_annual),
@@ -67,10 +70,36 @@ export function buildPayload(form: FormData) {
     maintenance_increase_pct: parseFloat(form.maintenance_increase_pct),
     appreciation_rate_pct: parseFloat(form.appreciation_rate_pct),
     property_tax_increase_pct: parseFloat(form.property_tax_increase_pct),
+    mls_id: form.mls_id || null,
     source_url: form.source_url || null,
     property_tax_url: form.property_tax_url || null,
   };
 }
+
+// ── Tooltip ──────────────────────────────────────────────────────────────────
+
+function InfoTooltip({ text }: { text: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="relative inline-block ml-1 align-middle">
+      <span
+        className="cursor-help text-zinc-400 hover:text-blue-500 transition-colors text-xs select-none"
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+      >
+        ⓘ
+      </span>
+      {visible && (
+        <span className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 bg-zinc-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed pointer-events-none">
+          {text}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ── Form primitives ───────────────────────────────────────────────────────────
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -82,11 +111,11 @@ function SectionHeader({ title }: { title: string }) {
 
 function Field({
   label, name, type = "text", required = true, min, max, step,
-  prefix, suffix, children, value, onChange,
+  prefix, suffix, tooltip, children, value, onChange,
 }: {
   label: string; name: string; type?: string; required?: boolean;
   min?: string; max?: string; step?: string; prefix?: string; suffix?: string;
-  children?: React.ReactNode; value: string;
+  tooltip?: string; children?: React.ReactNode; value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
 }) {
   const inputClass =
@@ -95,7 +124,9 @@ function Field({
   return (
     <div>
       <label className="block text-sm font-medium text-zinc-800 mb-1">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {tooltip && <InfoTooltip text={tooltip} />}
       </label>
       {children ? (
         <select name={name} required={required} value={value} onChange={onChange} className={inputClass}>
@@ -114,6 +145,8 @@ function Field({
     </div>
   );
 }
+
+// ── Main form ─────────────────────────────────────────────────────────────────
 
 interface PropertyFormProps {
   initialValues?: Partial<FormData>;
@@ -152,9 +185,12 @@ export default function PropertyForm({
 
         <SectionHeader title="Property Information" />
 
-        <div className="col-span-2">
-          <Field label="Zillow / Redfin URL" name="source_url" required={false} value={form.source_url} onChange={handleChange} />
-        </div>
+        <Field label="MLS ID" name="mls_id" required={false}
+          tooltip="Multiple Listing Service identifier. Optional — for your reference only."
+          value={form.mls_id} onChange={handleChange} />
+        <Field label="Zillow / Redfin URL" name="source_url" required={false}
+          tooltip="Link to the listing page for your records. No effect on calculations."
+          value={form.source_url} onChange={handleChange} />
         <div className="col-span-2">
           <Field label="Street address" name="address_street" value={form.address_street} onChange={handleChange} />
         </div>
@@ -185,32 +221,64 @@ export default function PropertyForm({
 
         <SectionHeader title="Acquisition" />
 
-        <Field label="Purchase price" name="purchase_price" type="number" min="0.01" max="9999999.99" step="0.01" prefix="$" value={form.purchase_price} onChange={handleChange} />
-        <Field label="Annual interest rate" name="annual_interest_rate" type="number" min="0" max="25" step="0.01" suffix="%" value={form.annual_interest_rate} onChange={handleChange} />
-        <Field label="Mortgage term" name="mortgage_term" type="number" min="1" max="45" suffix="years" value={form.mortgage_term} onChange={handleChange} />
-        <Field label="Down payment" name="down_payment" type="number" min="0" max="100" step="0.01" suffix="%" value={form.down_payment} onChange={handleChange} />
-        <div className="col-span-2">
-          <Field label="Closing costs" name="closing_costs" type="number" min="0" max="9999999.99" step="0.01" prefix="$" value={form.closing_costs} onChange={handleChange} />
-        </div>
+        <Field label="Purchase price" name="purchase_price" type="number" min="0.01" max="9999999.99" step="0.01" prefix="$"
+          value={form.purchase_price} onChange={handleChange} />
+        <Field label="Annual interest rate" name="annual_interest_rate" type="number" min="0" max="25" step="0.01" suffix="%"
+          tooltip="Fixed annual rate on your mortgage loan."
+          value={form.annual_interest_rate} onChange={handleChange} />
+        <Field label="Mortgage term" name="mortgage_term" type="number" min="1" max="45" suffix="years"
+          value={form.mortgage_term} onChange={handleChange} />
+        <Field label="Down payment" name="down_payment" type="number" min="0" max="100" step="0.01" suffix="%"
+          tooltip="Percentage of the purchase price paid upfront. Enter 100 for a cash purchase."
+          value={form.down_payment} onChange={handleChange} />
+        <Field label="Closing costs" name="closing_costs" type="number" min="0" max="9999999.99" step="0.01" prefix="$"
+          tooltip="One-time fees at settlement: origination fees, title insurance, recording fees, prepaid taxes and insurance. Typically 2–5% of purchase price."
+          value={form.closing_costs} onChange={handleChange} />
+        <Field label="PMI" name="pmi_monthly" type="number" min="0" max="9999.99" step="0.01" prefix="$" suffix="/mo" required={false}
+          tooltip="Private Mortgage Insurance — required by most lenders when down payment is under 20%. Typically $50–$300/month. The analysis automatically removes PMI once principal paydown brings your loan below 80% of the original purchase price."
+          value={form.pmi_monthly} onChange={handleChange} />
 
         <SectionHeader title="Property Management" />
 
-        <Field label="Estimated rent (low)" name="rent_lower" type="number" min="0" max="99999.99" step="0.01" prefix="$" suffix="/mo" value={form.rent_lower} onChange={handleChange} />
-        <Field label="Estimated rent (high)" name="rent_upper" type="number" min="0" max="99999.99" step="0.01" prefix="$" suffix="/mo" value={form.rent_upper} onChange={handleChange} />
-        <Field label="Annual property taxes" name="property_tax_annual" type="number" min="0" max="999999.99" step="0.01" prefix="$" value={form.property_tax_annual} onChange={handleChange} />
-        <Field label="Property tax reference URL" name="property_tax_url" required={false} value={form.property_tax_url} onChange={handleChange} />
-        <Field label="Annual HOA dues" name="hoa_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$" value={form.hoa_annual} onChange={handleChange} />
-        <Field label="Annual property management cost" name="property_management_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$" value={form.property_management_annual} onChange={handleChange} />
-        <Field label="Annual vacancy" name="vacancy_days_annual" type="number" min="0" max="364" suffix="days" value={form.vacancy_days_annual} onChange={handleChange} />
-        <Field label="Annual maintenance & repairs" name="maintenance_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$" value={form.maintenance_annual} onChange={handleChange} />
-        <Field label="Annual home insurance" name="insurance_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$" value={form.insurance_annual} onChange={handleChange} />
+        <Field label="Estimated rent (low)" name="rent_lower" type="number" min="0" max="99999.99" step="0.01" prefix="$" suffix="/mo"
+          tooltip="Your conservative monthly rent estimate. The analysis runs three scenarios: low, midpoint, and high."
+          value={form.rent_lower} onChange={handleChange} />
+        <Field label="Estimated rent (high)" name="rent_upper" type="number" min="0" max="99999.99" step="0.01" prefix="$" suffix="/mo"
+          tooltip="Your optimistic monthly rent estimate. The midpoint of low and high is used as the base scenario."
+          value={form.rent_upper} onChange={handleChange} />
+        <Field label="Annual property taxes" name="property_tax_annual" type="number" min="0" max="999999.99" step="0.01" prefix="$"
+          value={form.property_tax_annual} onChange={handleChange} />
+        <Field label="Property tax reference URL" name="property_tax_url" required={false}
+          tooltip="Optional link to the county assessor or tax record where you found this number."
+          value={form.property_tax_url} onChange={handleChange} />
+        <Field label="Annual HOA dues" name="hoa_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$"
+          value={form.hoa_annual} onChange={handleChange} />
+        <Field label="Annual property management cost" name="property_management_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$"
+          tooltip="Fee for a professional property manager. Full-service management typically runs 8–12% of gross annual rent. Enter 0 if self-managing."
+          value={form.property_management_annual} onChange={handleChange} />
+        <Field label="Annual vacancy" name="vacancy_days_annual" type="number" min="0" max="364" suffix="days"
+          tooltip="Expected days per year the property sits empty between tenants. 18 days ≈ 5% vacancy, a common baseline for stable markets."
+          value={form.vacancy_days_annual} onChange={handleChange} />
+        <Field label="Annual maintenance & repairs" name="maintenance_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$"
+          tooltip="Budget for routine upkeep, appliances, and unexpected repairs. A common rule of thumb is 1% of purchase price per year."
+          value={form.maintenance_annual} onChange={handleChange} />
+        <Field label="Annual home insurance" name="insurance_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$"
+          value={form.insurance_annual} onChange={handleChange} />
 
         <SectionHeader title="Year-over-Year Adjustments" />
 
-        <Field label="Annual rent increase" name="rent_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%" value={form.rent_increase_pct} onChange={handleChange} />
-        <Field label="Annual maintenance cost increase" name="maintenance_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%" value={form.maintenance_increase_pct} onChange={handleChange} />
-        <Field label="Property appreciation rate" name="appreciation_rate_pct" type="number" min="0" max="100" step="0.1" suffix="%" value={form.appreciation_rate_pct} onChange={handleChange} />
-        <Field label="Annual property tax increase" name="property_tax_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%" value={form.property_tax_increase_pct} onChange={handleChange} />
+        <Field label="Annual rent increase" name="rent_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%"
+          tooltip="Expected yearly rent growth rate. The US long-term average is roughly 3–4%."
+          value={form.rent_increase_pct} onChange={handleChange} />
+        <Field label="Annual maintenance cost increase" name="maintenance_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%"
+          tooltip="Reflects labor and materials inflation. Roughly tracks general inflation (~2–3%)."
+          value={form.maintenance_increase_pct} onChange={handleChange} />
+        <Field label="Property appreciation rate" name="appreciation_rate_pct" type="number" min="0" max="100" step="0.1" suffix="%"
+          tooltip="Expected annual increase in property value. US long-term average is roughly 3–4%, though local markets vary significantly."
+          value={form.appreciation_rate_pct} onChange={handleChange} />
+        <Field label="Annual property tax increase" name="property_tax_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%"
+          tooltip="Many jurisdictions cap property tax increases by law. Check your local rules — often 2–3% in states with caps."
+          value={form.property_tax_increase_pct} onChange={handleChange} />
       </div>
 
       {error && <p className="mt-6 text-sm text-red-600">{error}</p>}

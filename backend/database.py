@@ -11,6 +11,7 @@ Base = declarative_base()
 def create_tables():
     from backend.models.user import User  # pyright: ignore[reportUnusedImport]
     from backend.models.property import Property  # pyright: ignore[reportUnusedImport]
+    from backend.models.settings import AppSetting  # pyright: ignore[reportUnusedImport]
     Base.metadata.create_all(bind=engine)
 
 

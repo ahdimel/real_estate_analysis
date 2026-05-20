@@ -11,6 +11,7 @@ class Property(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # House information
+    mls_id = Column(String, nullable=True)
     source_url = Column(String, nullable=True)
     address_street = Column(String, nullable=False)
     address_city = Column(String, nullable=False)
@@ -29,6 +30,7 @@ class Property(Base):
     mortgage_term = Column(Integer, nullable=False)
     down_payment = Column(Numeric(5, 2), nullable=False)
     closing_costs = Column(Numeric(11, 2), nullable=False)
+    pmi_monthly = Column(Numeric(7, 2), nullable=True)
 
     # Property management
     rent_lower = Column(Numeric(9, 2), nullable=False)

@@ -153,6 +153,16 @@ def test_down_payment_100_percent_accepted(client):
     assert res.status_code == 201
 
 
+def test_property_limit_enforced(client):
+    token = _register_and_login(client)
+    for i in range(10):
+        res = client.post(PROPS_URL, json={**VALID_PROPERTY, "address_street": f"{i} Main St"}, headers=auth_headers(token))
+        assert res.status_code == 201
+    res = client.post(PROPS_URL, json={**VALID_PROPERTY, "address_street": "11 Over St"}, headers=auth_headers(token))
+    assert res.status_code == 400
+    assert "limit" in res.json()["detail"].lower()
+
+
 def test_invalid_rent_range(client):
     token = _register_and_login(client)
     res = client.post(PROPS_URL, json={**VALID_PROPERTY, "rent_lower": 3000.00, "rent_upper": 2000.00}, headers=auth_headers(token))
