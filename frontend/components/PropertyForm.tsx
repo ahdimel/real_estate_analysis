@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -175,9 +176,8 @@ export default function PropertyForm({
     setScraping(true);
     setScrapeResult(null);
     try {
-      const res = await fetch("http://localhost:8000/scraper/zillow", {
+      const res = await apiFetch("/scraper/zillow", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: form.source_url.trim() }),
       });
       const json = await res.json();

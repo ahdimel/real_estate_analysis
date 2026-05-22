@@ -43,6 +43,8 @@ def scrape_zillow(url: str) -> dict:
     Raises ValueError on fetch failure or if property data cannot be located.
     """
     r = requests.get(url, impersonate="chrome124", headers=HEADERS, timeout=20)
+    if r.status_code == 403:
+        raise ValueError("Zillow blocked this request. URL scraping works when running the app locally. Please fill in the form manually.")
     if r.status_code != 200:
         raise ValueError(f"Zillow returned HTTP {r.status_code}")
 
