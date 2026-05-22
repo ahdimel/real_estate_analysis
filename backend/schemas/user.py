@@ -7,6 +7,11 @@ class UserRegister(BaseModel):
     password: str
 
 
+class VerifyCode(BaseModel):
+    email: EmailStr
+    code: str  # str preserves leading zeros e.g. "042817"
+
+
 class UserLogin(BaseModel):
     username: str
     password: str

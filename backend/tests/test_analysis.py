@@ -163,10 +163,29 @@ def test_cap_rate_is_positive():
 
 # --- API endpoint tests ---
 
+import pytest
+from unittest.mock import patch
+from backend.models.email_verification import EmailVerification
+
 REGISTER_URL = "/auth/register"
+VERIFY_URL = "/auth/verify"
 LOGIN_URL = "/auth/login"
 PROPS_URL = "/properties"
 USER = {"username": "alice", "email": "alice@example.com", "password": "password1"}
+
+
+@pytest.fixture(autouse=True)
+def mock_email():
+    with patch("backend.routes.auth.send_verification_email"):
+        yield
+
+
+def _get_code(client, email: str) -> str:
+    from backend.database import get_db
+    db = next(client.app.dependency_overrides[get_db]())
+    row = db.query(EmailVerification).filter(EmailVerification.email == email).first()
+    assert row is not None
+    return row.code
 
 VALID_PROPERTY = {
     "address_street": "123 Main St", "address_city": "Austin",
@@ -186,7 +205,8 @@ VALID_PROPERTY = {
 
 def _login(client):
     client.post(REGISTER_URL, json=USER)
-    return client.post(LOGIN_URL, json={"username": "alice", "password": "password1"}).json()["access_token"]
+    code = _get_code(client, USER["email"])
+    return client.post(VERIFY_URL, json={"email": USER["email"], "code": code}).json()["access_token"]
 
 
 def auth_headers(token):
@@ -221,7 +241,8 @@ def test_analysis_other_users_property_rejected(client):
     token_a = _login(client)
     prop = client.post(PROPS_URL, json=VALID_PROPERTY, headers=auth_headers(token_a)).json()
 
-    client.post(REGISTER_URL, json={"username": "bob", "email": "bob@example.com", "password": "password2"})
-    token_b = client.post(LOGIN_URL, json={"username": "bob", "password": "password2"}).json()["access_token"]
+    bob = {"username": "bob", "email": "bob@example.com", "password": "password2"}
+    client.post(REGISTER_URL, json=bob)
+    token_b = client.post(VERIFY_URL, json={"email": bob["email"], "code": _get_code(client, bob["email"])}).json()["access_token"]
     res = client.get(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(token_b))
     assert res.status_code == 404

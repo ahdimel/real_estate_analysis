@@ -1,8 +1,27 @@
+import pytest
+from unittest.mock import patch
+from backend.models.email_verification import EmailVerification
+
 REGISTER_URL = "/auth/register"
+VERIFY_URL = "/auth/verify"
 LOGIN_URL = "/auth/login"
 PROPS_URL = "/properties"
 
 USER = {"username": "alice", "email": "alice@example.com", "password": "password1"}
+
+
+@pytest.fixture(autouse=True)
+def mock_email():
+    with patch("backend.routes.auth.send_verification_email"):
+        yield
+
+
+def _get_code(client, email: str) -> str:
+    from backend.database import get_db
+    db = next(client.app.dependency_overrides[get_db]())
+    row = db.query(EmailVerification).filter(EmailVerification.email == email).first()
+    assert row is not None
+    return row.code
 
 VALID_PROPERTY = {
     "address_street": "123 Main St",
@@ -37,8 +56,8 @@ VALID_PROPERTY = {
 
 def _register_and_login(client):
     client.post(REGISTER_URL, json=USER)
-    res = client.post(LOGIN_URL, json={"username": USER["username"], "password": USER["password"]})
-    return res.json()["access_token"]
+    code = _get_code(client, USER["email"])
+    return client.post(VERIFY_URL, json={"email": USER["email"], "code": code}).json()["access_token"]
 
 
 def auth_headers(token):
@@ -71,8 +90,9 @@ def test_list_only_returns_own_properties(client):
     token_a = _register_and_login(client)
     client.post(PROPS_URL, json=VALID_PROPERTY, headers=auth_headers(token_a))
 
-    client.post(REGISTER_URL, json={"username": "bob", "email": "bob@example.com", "password": "password2"})
-    token_b = client.post(LOGIN_URL, json={"username": "bob", "password": "password2"}).json()["access_token"]
+    bob = {"username": "bob", "email": "bob@example.com", "password": "password2"}
+    client.post(REGISTER_URL, json=bob)
+    token_b = client.post(VERIFY_URL, json={"email": bob["email"], "code": _get_code(client, bob["email"])}).json()["access_token"]
     client.post(PROPS_URL, json={**VALID_PROPERTY, "address_street": "999 Other St"}, headers=auth_headers(token_b))
 
     res = client.get(PROPS_URL, headers=auth_headers(token_a))
@@ -130,8 +150,9 @@ def test_cannot_access_other_users_property(client):
     token_a = _register_and_login(client)
     created = client.post(PROPS_URL, json=VALID_PROPERTY, headers=auth_headers(token_a)).json()
 
-    client.post(REGISTER_URL, json={"username": "bob", "email": "bob@example.com", "password": "password2"})
-    token_b = client.post(LOGIN_URL, json={"username": "bob", "password": "password2"}).json()["access_token"]
+    bob = {"username": "bob", "email": "bob@example.com", "password": "password2"}
+    client.post(REGISTER_URL, json=bob)
+    token_b = client.post(VERIFY_URL, json={"email": bob["email"], "code": _get_code(client, bob["email"])}).json()["access_token"]
 
     assert client.get(f"{PROPS_URL}/{created['id']}", headers=auth_headers(token_b)).status_code == 404
     assert client.put(f"{PROPS_URL}/{created['id']}", json=VALID_PROPERTY, headers=auth_headers(token_b)).status_code == 404
