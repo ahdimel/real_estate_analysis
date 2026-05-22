@@ -27,6 +27,7 @@ export const EMPTY_FORM = {
   mortgage_term: "",
   down_payment: "",
   closing_costs: "",
+  initial_repairs: "",
   pmi_monthly: "",
   rent_lower: "",
   rent_upper: "",
@@ -48,21 +49,22 @@ export type FormData = typeof EMPTY_FORM;
 export function buildPayload(form: FormData) {
   return {
     ...form,
-    bedrooms: parseInt(form.bedrooms),
-    bathrooms: parseInt(form.bathrooms),
-    year_built: parseInt(form.year_built),
-    square_feet: parseInt(form.square_feet),
+    bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null,
+    bathrooms: form.bathrooms ? parseInt(form.bathrooms) : null,
+    year_built: form.year_built ? parseInt(form.year_built) : null,
+    square_feet: form.square_feet ? parseInt(form.square_feet) : null,
     mortgage_term: parseInt(form.mortgage_term),
     vacancy_days_annual: parseInt(form.vacancy_days_annual),
     purchase_price: parseFloat(form.purchase_price),
     annual_interest_rate: parseFloat(form.annual_interest_rate),
     down_payment: parseFloat(form.down_payment),
     closing_costs: parseFloat(form.closing_costs),
+    initial_repairs: form.initial_repairs ? parseFloat(form.initial_repairs) : null,
     pmi_monthly: form.pmi_monthly ? parseFloat(form.pmi_monthly) : null,
     rent_lower: parseFloat(form.rent_lower),
     rent_upper: parseFloat(form.rent_upper),
     property_tax_annual: parseFloat(form.property_tax_annual),
-    hoa_annual: parseFloat(form.hoa_annual),
+    hoa_annual: form.hoa_annual ? parseFloat(form.hoa_annual) : null,
     property_management_annual: parseFloat(form.property_management_annual),
     maintenance_annual: parseFloat(form.maintenance_annual),
     insurance_annual: parseFloat(form.insurance_annual),
@@ -161,9 +163,46 @@ export default function PropertyForm({
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, ...initialValues });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<{ filled: string[]; error?: string } | null>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleScrape() {
+    if (!form.source_url.trim()) return;
+    setScraping(true);
+    setScrapeResult(null);
+    try {
+      const res = await fetch("http://localhost:8000/scraper/zillow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: form.source_url.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setScrapeResult({ filled: [], error: json.detail ?? "Scrape failed" });
+        return;
+      }
+      const data: Record<string, unknown> = json.data;
+      const filled: string[] = [];
+      setForm((prev) => {
+        const updated = { ...prev };
+        for (const [key, val] of Object.entries(data)) {
+          if (key in updated && val != null) {
+            (updated as Record<string, string>)[key] = String(val);
+            filled.push(key.replace(/_/g, " "));
+          }
+        }
+        return updated;
+      });
+      setScrapeResult({ filled });
+    } catch {
+      setScrapeResult({ filled: [], error: "Could not reach the server." });
+    } finally {
+      setScraping(false);
+    }
   }
 
   async function handleSubmit(e: React.SyntheticEvent) {
@@ -188,9 +227,35 @@ export default function PropertyForm({
         <Field label="MLS ID" name="mls_id" required={false}
           tooltip="Multiple Listing Service identifier. Optional — for your reference only."
           value={form.mls_id} onChange={handleChange} />
-        <Field label="Zillow / Redfin URL" name="source_url" required={false}
-          tooltip="Link to the listing page for your records. No effect on calculations."
-          value={form.source_url} onChange={handleChange} />
+        <div>
+          <label className="block text-sm font-medium text-zinc-800 mb-1">
+            Zillow URL
+            <InfoTooltip text="Paste a Zillow listing URL and click Scrape to auto-fill the form." />
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text" name="source_url" value={form.source_url} onChange={handleChange}
+              className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="https://www.zillow.com/homedetails/..."
+            />
+            <button
+              type="button" onClick={handleScrape} disabled={scraping || !form.source_url.trim()}
+              className="px-4 py-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white rounded-lg transition-colors whitespace-nowrap"
+            >
+              {scraping ? "Scraping…" : "Scrape"}
+            </button>
+          </div>
+          {scrapeResult && (
+            scrapeResult.error ? (
+              <p className="mt-1.5 text-xs text-red-600">{scrapeResult.error}</p>
+            ) : (
+              <p className="mt-1.5 text-xs text-green-700">
+                ✓ Filled {scrapeResult.filled.length} field{scrapeResult.filled.length !== 1 ? "s" : ""}:{" "}
+                {scrapeResult.filled.join(", ")}
+              </p>
+            )
+          )}
+        </div>
         <div className="col-span-2">
           <Field label="Street address" name="address_street" value={form.address_street} onChange={handleChange} />
         </div>
@@ -206,9 +271,9 @@ export default function PropertyForm({
           <option value="condo">Condo</option>
           <option value="townhouse">Townhouse</option>
         </Field>
-        <Field label="Bedrooms" name="bedrooms" type="number" min="1" max="20" value={form.bedrooms} onChange={handleChange} />
-        <Field label="Bathrooms" name="bathrooms" type="number" min="1" max="20" value={form.bathrooms} onChange={handleChange} />
-        <Field label="Garage" name="garage" value={form.garage} onChange={handleChange}>
+        <Field label="Bedrooms" name="bedrooms" type="number" min="1" max="20" required={false} value={form.bedrooms} onChange={handleChange} />
+        <Field label="Bathrooms" name="bathrooms" type="number" min="1" max="20" required={false} value={form.bathrooms} onChange={handleChange} />
+        <Field label="Garage" name="garage" required={false} value={form.garage} onChange={handleChange}>
           <option value="none">None</option>
           <option value="1">1 car</option>
           <option value="2">2 car</option>
@@ -216,8 +281,8 @@ export default function PropertyForm({
           <option value="4">4 car</option>
           <option value="carport">Carport</option>
         </Field>
-        <Field label="Year built" name="year_built" type="number" min="1900" max="2030" value={form.year_built} onChange={handleChange} />
-        <Field label="Square footage" name="square_feet" type="number" min="1" max="99999" suffix="sq ft" value={form.square_feet} onChange={handleChange} />
+        <Field label="Year built" name="year_built" type="number" min="1900" max="2030" required={false} value={form.year_built} onChange={handleChange} />
+        <Field label="Square footage" name="square_feet" type="number" min="1" max="99999" suffix="sq ft" required={false} value={form.square_feet} onChange={handleChange} />
 
         <SectionHeader title="Acquisition" />
 
@@ -234,6 +299,9 @@ export default function PropertyForm({
         <Field label="Closing costs" name="closing_costs" type="number" min="0" max="9999999.99" step="0.01" prefix="$"
           tooltip="One-time fees at settlement: origination fees, title insurance, recording fees, prepaid taxes and insurance. Typically 2–5% of purchase price."
           value={form.closing_costs} onChange={handleChange} />
+        <Field label="Initial repair estimate" name="initial_repairs" type="number" min="0" max="999999.99" step="0.01" prefix="$" required={false}
+          tooltip="One-time estimated cost for repairs or renovations before the property is rent-ready. Treated as an additional upfront sunk cost alongside the down payment and closing costs."
+          value={form.initial_repairs} onChange={handleChange} />
         <Field label="PMI" name="pmi_monthly" type="number" min="0" max="9999.99" step="0.01" prefix="$" suffix="/mo" required={false}
           tooltip="Private Mortgage Insurance — required by most lenders when down payment is under 20%. Typically $50–$300/month. The analysis automatically removes PMI once principal paydown brings your loan below 80% of the original purchase price."
           value={form.pmi_monthly} onChange={handleChange} />
@@ -251,7 +319,7 @@ export default function PropertyForm({
         <Field label="Property tax reference URL" name="property_tax_url" required={false}
           tooltip="Optional link to the county assessor or tax record where you found this number."
           value={form.property_tax_url} onChange={handleChange} />
-        <Field label="Annual HOA dues" name="hoa_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$"
+        <Field label="Annual HOA dues" name="hoa_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$" required={false}
           value={form.hoa_annual} onChange={handleChange} />
         <Field label="Annual property management cost" name="property_management_annual" type="number" min="0" max="99999.99" step="0.01" prefix="$"
           tooltip="Fee for a professional property manager. Full-service management typically runs 8–12% of gross annual rent. Enter 0 if self-managing."

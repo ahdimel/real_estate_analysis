@@ -39,8 +39,8 @@ class AnalysisResponseOut(BaseModel):
     monthly_mortgage: float
     cap_rate_mid: float
     grm_mid: float
-    voo_cagr_pct: float
-    voo_label: str
+    market_cagr_pct: float
+    market_label: str
     summary_low: ScenarioSummaryOut
     summary_mid: ScenarioSummaryOut
     summary_high: ScenarioSummaryOut

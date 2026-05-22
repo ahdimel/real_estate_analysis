@@ -15,8 +15,8 @@ interface Property {
   address_state: string;
   property_type: string;
   purchase_price: number;
-  bedrooms: number;
-  bathrooms: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -123,8 +123,12 @@ export default function DashboardPage() {
                   <p className="text-sm text-zinc-500">{p.address_city}, {p.address_state}</p>
                   <div className="flex gap-3 mt-1 text-xs text-zinc-400">
                     <span>{TYPE_LABELS[p.property_type] ?? p.property_type}</span>
-                    <span>·</span>
-                    <span>{p.bedrooms} bd / {p.bathrooms} ba</span>
+                    {(p.bedrooms != null || p.bathrooms != null) && (
+                      <>
+                        <span>·</span>
+                        <span>{p.bedrooms ?? "—"} bd / {p.bathrooms ?? "—"} ba</span>
+                      </>
+                    )}
                     <span>·</span>
                     <span>{formatCurrency(p.purchase_price)}</span>
                   </div>

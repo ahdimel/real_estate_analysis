@@ -13,11 +13,11 @@ class PropertyCreate(BaseModel):
     address_state: str
     address_zip: str
     property_type: Literal["single_family", "multi_family", "condo", "townhouse"]
-    bedrooms: int = Field(ge=1, le=20)
-    bathrooms: int = Field(ge=1, le=20)
-    garage: Literal["none", "1", "2", "3", "4", "carport"]
-    year_built: int = Field(ge=1900, le=2030)
-    square_feet: int = Field(ge=1, le=99999)
+    bedrooms: Optional[int] = Field(default=None, ge=1, le=20)
+    bathrooms: Optional[int] = Field(default=None, ge=1, le=20)
+    garage: Optional[Literal["none", "1", "2", "3", "4", "carport"]] = None
+    year_built: Optional[int] = Field(default=None, ge=1900, le=2030)
+    square_feet: Optional[int] = Field(default=None, ge=1, le=99999)
 
     # Acquisition
     purchase_price: Decimal = Field(ge=Decimal("0.01"), le=Decimal("9999999.99"))
@@ -25,6 +25,7 @@ class PropertyCreate(BaseModel):
     mortgage_term: int = Field(ge=1, le=45)
     down_payment: Decimal = Field(ge=Decimal("0.00"), le=Decimal("100.00"))
     closing_costs: Decimal = Field(ge=Decimal("0.00"), le=Decimal("9999999.99"))
+    initial_repairs: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"), le=Decimal("999999.99"))
     pmi_monthly: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"), le=Decimal("9999.99"))
 
     # Property management
@@ -32,7 +33,7 @@ class PropertyCreate(BaseModel):
     rent_upper: Decimal = Field(ge=Decimal("0.00"), le=Decimal("99999.99"))
     property_tax_annual: Decimal = Field(ge=Decimal("0.00"), le=Decimal("999999.99"))
     property_tax_url: Optional[str] = None
-    hoa_annual: Decimal = Field(ge=Decimal("0.00"), le=Decimal("99999.99"))
+    hoa_annual: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"), le=Decimal("99999.99"))
     property_management_annual: Decimal = Field(ge=Decimal("0.00"), le=Decimal("99999.99"))
     vacancy_days_annual: int = Field(ge=0, le=364)
     maintenance_annual: Decimal = Field(ge=Decimal("0.00"), le=Decimal("99999.99"))
@@ -60,22 +61,23 @@ class PropertyOut(BaseModel):
     address_state: str
     address_zip: str
     property_type: str
-    bedrooms: int
-    bathrooms: int
-    garage: str
-    year_built: int
-    square_feet: int
+    bedrooms: Optional[int]
+    bathrooms: Optional[int]
+    garage: Optional[str]
+    year_built: Optional[int]
+    square_feet: Optional[int]
     purchase_price: float
     annual_interest_rate: float
     mortgage_term: int
     down_payment: float
     closing_costs: float
+    initial_repairs: Optional[float]
     pmi_monthly: Optional[float]
     rent_lower: float
     rent_upper: float
     property_tax_annual: float
     property_tax_url: Optional[str]
-    hoa_annual: float
+    hoa_annual: Optional[float]
     property_management_annual: float
     vacancy_days_annual: int
     maintenance_annual: float

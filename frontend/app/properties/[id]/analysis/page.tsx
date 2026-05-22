@@ -48,8 +48,8 @@ interface AnalysisData {
   monthly_mortgage: number;
   cap_rate_mid: number;
   grm_mid: number;
-  voo_cagr_pct: number;
-  voo_label: string;
+  market_cagr_pct: number;
+  market_label: string;
   summary_low: ScenarioSummary;
   summary_mid: ScenarioSummary;
   summary_high: ScenarioSummary;
@@ -313,7 +313,7 @@ export default function AnalysisPage() {
                 />
                 <Legend verticalAlign="top" height={36} />
                 <Line yAxisId="dollar" type="monotone" dataKey="re_value" name="RE Value" stroke="#10b981" dot={false} strokeWidth={2} />
-                <Line yAxisId="dollar" type="monotone" dataKey="stock_value" name={data.voo_label} stroke="#8b5cf6" dot={false} strokeWidth={2} strokeDasharray="3 5" />
+                <Line yAxisId="dollar" type="monotone" dataKey="stock_value" name={data.market_label} stroke="#8b5cf6" dot={false} strokeWidth={2} strokeDasharray="3 5" />
                 <Line yAxisId="pct" type="monotone" dataKey="cumulative_roi_pct" name="Cumulative ROI %" stroke="#f59e0b" dot={false} strokeWidth={2} strokeDasharray="5 3" />
               </ComposedChart>
             </ResponsiveContainer>

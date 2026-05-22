@@ -26,6 +26,7 @@ function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
     mortgage_term: str(prop.mortgage_term),
     down_payment: str(prop.down_payment),
     closing_costs: str(prop.closing_costs),
+    initial_repairs: str(prop.initial_repairs),
     pmi_monthly: str(prop.pmi_monthly),
     rent_lower: str(prop.rent_lower),
     rent_upper: str(prop.rent_upper),

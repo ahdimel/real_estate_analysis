@@ -21,9 +21,9 @@ class YearProjection:
     loan_balance: float
     equity: float
     equity_gain: float
-    re_value: float          # cumulative_cash_flow + equity_gain
-    cumulative_roi_pct: float  # re_value / initial_investment × 100
-    stock_value: float       # dollar gain from same capital invested in VOO
+    re_value: float            # total equity + cumulative cash flow (net proceeds if sold today)
+    cumulative_roi_pct: float  # (re_value - initial_investment) / initial_investment × 100
+    stock_value: float         # same initial capital compounded at S&P 500 CAGR
 
 
 @dataclass
@@ -42,8 +42,8 @@ class AnalysisResult:
     monthly_mortgage: float
     cap_rate_mid: float
     grm_mid: float
-    voo_cagr_pct: float
-    voo_label: str
+    market_cagr_pct: float
+    market_label: str
     summary_low: ScenarioSummary
     summary_mid: ScenarioSummary
     summary_high: ScenarioSummary
@@ -93,7 +93,7 @@ def _project_scenario(
     property_tax_increase_pct: float,
     initial_investment: float,
     initial_equity: float,
-    voo_cagr: float,
+    market_cagr: float,
     horizon_years: int = 30,
 ) -> list[YearProjection]:
     projections: list[YearProjection] = []
@@ -122,9 +122,12 @@ def _project_scenario(
         equity = property_value - loan_balance
         equity_gain = equity - initial_equity
 
-        re_value = cumulative_cash_flow + equity_gain
-        cumulative_roi_pct = re_value / initial_investment * 100 if initial_investment > 0 else 0.0
-        stock_value = initial_investment * ((1 + voo_cagr) ** year - 1)
+        # Total net proceeds if sold today: full equity position + all cash flows received
+        re_value = equity + cumulative_cash_flow
+        # Gain as % of initial outlay: 0% = breakeven, negative = behind, positive = ahead
+        cumulative_roi_pct = (re_value - initial_investment) / initial_investment * 100 if initial_investment > 0 else 0.0
+        # Total stock portfolio value: same initial capital compounded at S&P 500 CAGR
+        stock_value = initial_investment * (1 + market_cagr) ** year
 
         projections.append(YearProjection(
             year=year,
@@ -167,12 +170,12 @@ def _scenario_summary(projections: list[YearProjection], initial_investment: flo
 def analyse_rental(
     prop,
     db,
-    _test_voo: tuple[float, str] | None = None,
+    _test_market: tuple[float, str] | None = None,
 ) -> AnalysisResult:
     """
-    _test_voo: pass a (cagr_decimal, label) tuple in tests to skip DB/network.
+    _test_market: pass a (cagr_decimal, label) tuple in tests to skip DB/network.
     """
-    from backend.analysis.market import get_voo_cagr
+    from backend.analysis.market import get_market_cagr
 
     purchase_price = float(prop.purchase_price)
     down_pct = float(prop.down_payment)
@@ -182,7 +185,7 @@ def analyse_rental(
     down_amount = purchase_price * down_pct / 100
     loan_amount = purchase_price - down_amount
     initial_equity = down_amount
-    initial_investment = down_amount + float(prop.closing_costs)
+    initial_investment = down_amount + float(prop.closing_costs) + float(prop.initial_repairs or 0)
 
     monthly_mortgage = monthly_mortgage_payment(loan_amount, annual_rate, term)
 
@@ -190,7 +193,7 @@ def analyse_rental(
     rent_high = float(prop.rent_upper)
     rent_mid = (rent_low + rent_high) / 2
 
-    voo_cagr, voo_label = _test_voo if _test_voo else get_voo_cagr(db)
+    market_cagr, market_label = _test_market if _test_market else get_market_cagr(db)
 
     common = dict(
         loan_amount=loan_amount,
@@ -199,7 +202,7 @@ def analyse_rental(
         annual_interest_rate=annual_rate,
         mortgage_term=term,
         property_tax_annual=float(prop.property_tax_annual),
-        hoa_annual=float(prop.hoa_annual),
+        hoa_annual=float(prop.hoa_annual or 0),
         property_management_annual=float(prop.property_management_annual),
         vacancy_days_annual=int(prop.vacancy_days_annual),
         maintenance_annual=float(prop.maintenance_annual),
@@ -211,7 +214,7 @@ def analyse_rental(
         property_tax_increase_pct=float(prop.property_tax_increase_pct),
         initial_investment=initial_investment,
         initial_equity=initial_equity,
-        voo_cagr=voo_cagr,
+        market_cagr=market_cagr,
     )
 
     proj_low = _project_scenario(starting_monthly_rent=rent_low, **common)
@@ -232,8 +235,8 @@ def analyse_rental(
         monthly_mortgage=round(monthly_mortgage, 2),
         cap_rate_mid=round(cap_rate_mid, 2),
         grm_mid=round(grm_mid, 2),
-        voo_cagr_pct=round(voo_cagr * 100, 2),
-        voo_label=voo_label,
+        market_cagr_pct=round(market_cagr * 100, 2),
+        market_label=market_label,
         summary_low=_scenario_summary(proj_low, initial_investment),
         summary_mid=_scenario_summary(proj_mid, initial_investment),
         summary_high=_scenario_summary(proj_high, initial_investment),

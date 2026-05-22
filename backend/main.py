@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import create_tables
-from backend.routes import auth, properties, analysis, market
+from backend.routes import auth, properties, analysis, market, scraper
 
 create_tables()
 
@@ -10,6 +10,7 @@ app.include_router(auth.router)
 app.include_router(properties.router)
 app.include_router(analysis.router)
 app.include_router(market.router)
+app.include_router(scraper.router)
 
 app.add_middleware(
     CORSMiddleware,

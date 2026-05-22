@@ -18,11 +18,11 @@ class Property(Base):
     address_state = Column(String, nullable=False)
     address_zip = Column(String, nullable=False)
     property_type = Column(String, nullable=False)
-    bedrooms = Column(Integer, nullable=False)
-    bathrooms = Column(Integer, nullable=False)
-    garage = Column(String, nullable=False)
-    year_built = Column(Integer, nullable=False)
-    square_feet = Column(Integer, nullable=False)
+    bedrooms = Column(Integer, nullable=True)
+    bathrooms = Column(Integer, nullable=True)
+    garage = Column(String, nullable=True)
+    year_built = Column(Integer, nullable=True)
+    square_feet = Column(Integer, nullable=True)
 
     # Acquisition
     purchase_price = Column(Numeric(11, 2), nullable=False)
@@ -30,6 +30,7 @@ class Property(Base):
     mortgage_term = Column(Integer, nullable=False)
     down_payment = Column(Numeric(5, 2), nullable=False)
     closing_costs = Column(Numeric(11, 2), nullable=False)
+    initial_repairs = Column(Numeric(9, 2), nullable=True)
     pmi_monthly = Column(Numeric(7, 2), nullable=True)
 
     # Property management
@@ -37,7 +38,7 @@ class Property(Base):
     rent_upper = Column(Numeric(9, 2), nullable=False)
     property_tax_annual = Column(Numeric(10, 2), nullable=False)
     property_tax_url = Column(String, nullable=True)
-    hoa_annual = Column(Numeric(9, 2), nullable=False)
+    hoa_annual = Column(Numeric(9, 2), nullable=True)
     property_management_annual = Column(Numeric(9, 2), nullable=False)
     vacancy_days_annual = Column(Integer, nullable=False)
     maintenance_annual = Column(Numeric(9, 2), nullable=False)
