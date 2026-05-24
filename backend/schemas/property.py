@@ -16,7 +16,6 @@ class PropertyCreate(BaseModel):
     bedrooms: Optional[int] = Field(default=None, ge=1, le=20)
     bathrooms: Optional[int] = Field(default=None, ge=1, le=20)
     garage: Optional[Literal["none", "1", "2", "3", "4", "carport"]] = None
-    year_built: Optional[int] = Field(default=None, ge=1900, le=2030)
     square_feet: Optional[int] = Field(default=None, ge=1, le=99999)
 
     # Acquisition
@@ -44,6 +43,7 @@ class PropertyCreate(BaseModel):
     maintenance_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
     appreciation_rate_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
     property_tax_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
+    insurance_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
 
     @model_validator(mode="after")
     def validate_cross_fields(self):
@@ -64,7 +64,6 @@ class PropertyOut(BaseModel):
     bedrooms: Optional[int]
     bathrooms: Optional[int]
     garage: Optional[str]
-    year_built: Optional[int]
     square_feet: Optional[int]
     purchase_price: float
     annual_interest_rate: float
@@ -86,6 +85,7 @@ class PropertyOut(BaseModel):
     maintenance_increase_pct: float
     appreciation_rate_pct: float
     property_tax_increase_pct: float
+    insurance_increase_pct: float
     created_at: datetime
 
     model_config = {"from_attributes": True}

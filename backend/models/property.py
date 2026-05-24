@@ -21,7 +21,6 @@ class Property(Base):
     bedrooms = Column(Integer, nullable=True)
     bathrooms = Column(Integer, nullable=True)
     garage = Column(String, nullable=True)
-    year_built = Column(Integer, nullable=True)
     square_feet = Column(Integer, nullable=True)
 
     # Acquisition
@@ -49,6 +48,7 @@ class Property(Base):
     maintenance_increase_pct = Column(Numeric(5, 1), nullable=False)
     appreciation_rate_pct = Column(Numeric(5, 1), nullable=False)
     property_tax_increase_pct = Column(Numeric(5, 1), nullable=False)
+    insurance_increase_pct = Column(Numeric(5, 1), nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

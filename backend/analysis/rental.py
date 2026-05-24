@@ -89,6 +89,7 @@ def _project_scenario(
     pmi_monthly: float,
     rent_increase_pct: float,
     maintenance_increase_pct: float,
+    insurance_increase_pct: float,
     appreciation_rate_pct: float,
     property_tax_increase_pct: float,
     initial_investment: float,
@@ -109,7 +110,7 @@ def _project_scenario(
         maintenance = maintenance_annual * (1 + maintenance_increase_pct / 100) ** g
         hoa = hoa_annual
         management = property_management_annual
-        insurance = insurance_annual
+        insurance = insurance_annual * (1 + insurance_increase_pct / 100) ** g
         loan_balance = remaining_loan_balance(loan_amount, annual_interest_rate, mortgage_term, year)
         # PMI drops off once principal paydown brings LTV below 80% of original purchase price
         pmi = pmi_monthly * 12 if loan_balance > 0.80 * purchase_price else 0.0
@@ -210,6 +211,7 @@ def analyse_rental(
         pmi_monthly=float(prop.pmi_monthly or 0),
         rent_increase_pct=float(prop.rent_increase_pct),
         maintenance_increase_pct=float(prop.maintenance_increase_pct),
+        insurance_increase_pct=float(prop.insurance_increase_pct),
         appreciation_rate_pct=float(prop.appreciation_rate_pct),
         property_tax_increase_pct=float(prop.property_tax_increase_pct),
         initial_investment=initial_investment,

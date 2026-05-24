@@ -32,7 +32,6 @@ VALID_PROPERTY = {
     "bedrooms": 3,
     "bathrooms": 2,
     "garage": "2",
-    "year_built": 2005,
     "square_feet": 1800,
     "purchase_price": 450000.00,
     "annual_interest_rate": 6.75,
@@ -51,6 +50,7 @@ VALID_PROPERTY = {
     "maintenance_increase_pct": 2.5,
     "appreciation_rate_pct": 4.0,
     "property_tax_increase_pct": 2.0,
+    "insurance_increase_pct": 4.0,
 }
 
 

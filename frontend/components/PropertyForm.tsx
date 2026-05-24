@@ -21,7 +21,6 @@ export const EMPTY_FORM = {
   bedrooms: "",
   bathrooms: "",
   garage: "none",
-  year_built: "",
   square_feet: "",
   purchase_price: "",
   annual_interest_rate: "",
@@ -43,6 +42,7 @@ export const EMPTY_FORM = {
   maintenance_increase_pct: "2",
   appreciation_rate_pct: "3",
   property_tax_increase_pct: "2",
+  insurance_increase_pct: "4",
 };
 
 export type FormData = typeof EMPTY_FORM;
@@ -52,7 +52,6 @@ export function buildPayload(form: FormData) {
     ...form,
     bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null,
     bathrooms: form.bathrooms ? parseInt(form.bathrooms) : null,
-    year_built: form.year_built ? parseInt(form.year_built) : null,
     square_feet: form.square_feet ? parseInt(form.square_feet) : null,
     mortgage_term: parseInt(form.mortgage_term),
     vacancy_days_annual: parseInt(form.vacancy_days_annual),
@@ -73,6 +72,7 @@ export function buildPayload(form: FormData) {
     maintenance_increase_pct: parseFloat(form.maintenance_increase_pct),
     appreciation_rate_pct: parseFloat(form.appreciation_rate_pct),
     property_tax_increase_pct: parseFloat(form.property_tax_increase_pct),
+    insurance_increase_pct: parseFloat(form.insurance_increase_pct),
     mls_id: form.mls_id || null,
     source_url: form.source_url || null,
     property_tax_url: form.property_tax_url || null,
@@ -106,8 +106,8 @@ function InfoTooltip({ text }: { text: string }) {
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div className="col-span-2 border-b border-zinc-200 pb-2 mt-4">
-      <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">{title}</h2>
+    <div className="col-span-2 border-b border-zinc-700 pb-2 mt-4">
+      <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">{title}</h2>
     </div>
   );
 }
@@ -122,13 +122,13 @@ function Field({
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
 }) {
   const inputClass =
-    "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500";
+    "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div>
-      <label className="block text-sm font-medium text-zinc-800 mb-1">
+      <label className="block text-sm font-medium text-zinc-200 mb-1">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-red-400 ml-0.5">*</span>}
         {tooltip && <InfoTooltip text={tooltip} />}
       </label>
       {children ? (
@@ -137,15 +137,15 @@ function Field({
         </select>
       ) : (
         <div className="flex items-center gap-1.5">
-          {prefix && <span className="text-sm font-medium text-zinc-600">{prefix}</span>}
+          {prefix && <span className="text-sm font-medium text-zinc-400">{prefix}</span>}
           <input
             type={type} name={name} required={required} value={value} onChange={onChange}
             min={min} max={max} step={step} className={inputClass}
           />
-          {suffix && <span className="text-sm font-medium text-zinc-600">{suffix}</span>}
+          {suffix && <span className="text-sm font-medium text-zinc-400">{suffix}</span>}
         </div>
       )}
-      {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-zinc-500">{hint}</p>}
     </div>
   );
 }
@@ -239,7 +239,7 @@ export default function PropertyForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white border border-zinc-200 rounded-2xl p-8">
+    <form onSubmit={handleSubmit} className="bg-zinc-800 border border-zinc-700 rounded-2xl p-8">
       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
 
         <SectionHeader title="Property Information" />
@@ -248,14 +248,14 @@ export default function PropertyForm({
           tooltip="Multiple Listing Service identifier. Optional — for your reference only."
           value={form.mls_id} onChange={handleChange} />
         <div>
-          <label className="block text-sm font-medium text-zinc-800 mb-1">
+          <label className="block text-sm font-medium text-zinc-200 mb-1">
             Zillow URL
             <InfoTooltip text="Paste a Zillow listing URL and click Scrape to auto-fill the form." />
           </label>
           <div className="flex gap-2">
             <input
               type="text" name="source_url" value={form.source_url} onChange={handleChange}
-              className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="https://www.zillow.com/homedetails/..."
             />
             <button
@@ -301,7 +301,6 @@ export default function PropertyForm({
           <option value="4">4 car</option>
           <option value="carport">Carport</option>
         </Field>
-        <Field label="Year built" name="year_built" type="number" min="1900" max="2030" required={false} value={form.year_built} onChange={handleChange} />
         <Field label="Square footage" name="square_feet" type="number" min="1" max="99999" suffix="sq ft" required={false} value={form.square_feet} onChange={handleChange} />
 
         <SectionHeader title="Acquisition" />
@@ -356,6 +355,10 @@ export default function PropertyForm({
 
         <SectionHeader title="Year-over-Year Adjustments" />
 
+        <Field label="Annual insurance premium increase" name="insurance_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%"
+          tooltip="Expected yearly increase in your home insurance premium. Insurance costs have been rising faster than general inflation in recent years; 4% is a reasonable baseline."
+          value={form.insurance_increase_pct} onChange={handleChange} />
+
         <Field label="Annual rent increase" name="rent_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%"
           tooltip="Expected yearly rent growth rate. The US long-term average is roughly 3–4%."
           value={form.rent_increase_pct} onChange={handleChange} />
@@ -370,11 +373,11 @@ export default function PropertyForm({
           value={form.property_tax_increase_pct} onChange={handleChange} />
       </div>
 
-      {error && <p className="mt-6 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-6 text-sm text-red-400">{error}</p>}
 
       <div className="mt-8 flex justify-end gap-3">
         <button type="button" onClick={onCancel}
-          className="px-4 py-2 text-sm text-zinc-600 border border-zinc-300 rounded-lg hover:bg-zinc-50">
+          className="px-4 py-2 text-sm text-zinc-300 border border-zinc-600 rounded-lg hover:bg-zinc-700">
           Cancel
         </button>
         <button type="submit" disabled={loading}

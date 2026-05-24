@@ -56,6 +56,7 @@ class FakeProp:
     maintenance_increase_pct = 2.5
     appreciation_rate_pct = 4.0
     property_tax_increase_pct = 2.0
+    insurance_increase_pct = 4.0
 
 
 def test_analyse_rental_returns_30_years():
@@ -191,7 +192,7 @@ VALID_PROPERTY = {
     "address_street": "123 Main St", "address_city": "Austin",
     "address_state": "TX", "address_zip": "78701",
     "property_type": "single_family", "bedrooms": 3, "bathrooms": 2,
-    "garage": "2", "year_built": 2005, "square_feet": 1800,
+    "garage": "2", "square_feet": 1800,
     "purchase_price": 450000.00, "annual_interest_rate": 6.75,
     "mortgage_term": 30, "down_payment": 20.00, "closing_costs": 9000.00,
     "rent_lower": 2200.00, "rent_upper": 2500.00,
@@ -200,6 +201,7 @@ VALID_PROPERTY = {
     "maintenance_annual": 2500.00, "insurance_annual": 1800.00,
     "rent_increase_pct": 3.0, "maintenance_increase_pct": 2.5,
     "appreciation_rate_pct": 4.0, "property_tax_increase_pct": 2.0,
+    "insurance_increase_pct": 4.0,
 }
 
 

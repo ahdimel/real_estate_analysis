@@ -19,7 +19,6 @@ function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
     bedrooms: str(prop.bedrooms),
     bathrooms: str(prop.bathrooms),
     garage: str(prop.garage),
-    year_built: str(prop.year_built),
     square_feet: str(prop.square_feet),
     purchase_price: str(prop.purchase_price),
     annual_interest_rate: str(prop.annual_interest_rate),
@@ -41,6 +40,7 @@ function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
     maintenance_increase_pct: str(prop.maintenance_increase_pct),
     appreciation_rate_pct: str(prop.appreciation_rate_pct),
     property_tax_increase_pct: str(prop.property_tax_increase_pct),
+    insurance_increase_pct: str(prop.insurance_increase_pct),
   };
 }
 
@@ -73,16 +73,16 @@ export default function EditPropertyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <nav className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
-        <span className="font-semibold text-zinc-900">REI</span>
-        <button onClick={() => router.push("/dashboard")} className="text-sm text-zinc-500 hover:text-zinc-800">
+    <div className="min-h-screen bg-zinc-900">
+      <nav className="bg-zinc-800 border-b border-zinc-700 px-6 py-4 flex items-center justify-between">
+        <span className="font-semibold text-zinc-100">REI</span>
+        <button onClick={() => router.push("/dashboard")} className="text-sm text-zinc-400 hover:text-zinc-100">
           ← Back to dashboard
         </button>
       </nav>
       <main className="max-w-3xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-semibold text-zinc-900 mb-6">Edit property</h1>
-        {fetchError && <p className="text-sm text-red-600 mb-4">{fetchError}</p>}
+        <h1 className="text-2xl font-semibold text-zinc-100 mb-6">Edit property</h1>
+        {fetchError && <p className="text-sm text-red-400 mb-4">{fetchError}</p>}
         {ready && (
           <PropertyForm
             initialValues={initialValues}

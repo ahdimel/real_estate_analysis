@@ -65,14 +65,14 @@ export default function DashboardPage() {
   const atLimit = properties.length >= PROPERTY_LIMIT;
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <nav className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
-        <span className="font-semibold text-zinc-900">REI</span>
+    <div className="min-h-screen bg-zinc-900">
+      <nav className="bg-zinc-800 border-b border-zinc-700 px-6 py-4 flex items-center justify-between">
+        <span className="font-semibold text-zinc-100">REI</span>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-zinc-500">
-            Signed in as <span className="font-medium text-zinc-800">{username}</span>
+          <span className="text-sm text-zinc-400">
+            Signed in as <span className="font-medium text-zinc-200">{username}</span>
           </span>
-          <button onClick={logout} className="text-sm text-red-600 hover:underline">
+          <button onClick={logout} className="text-sm text-red-400 hover:underline">
             Sign out
           </button>
         </div>
@@ -81,15 +81,15 @@ export default function DashboardPage() {
       <main className="max-w-4xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-zinc-900">My Properties</h1>
+            <h1 className="text-2xl font-semibold text-zinc-100">My Properties</h1>
             {!loadingProps && (
-              <p className="text-sm text-zinc-400 mt-0.5">
+              <p className="text-sm text-zinc-500 mt-0.5">
                 {properties.length} / {PROPERTY_LIMIT} properties
               </p>
             )}
           </div>
           {atLimit ? (
-            <span className="text-sm text-zinc-400 border border-zinc-200 px-4 py-2 rounded-lg">
+            <span className="text-sm text-zinc-500 border border-zinc-700 px-4 py-2 rounded-lg">
               Limit reached
             </span>
           ) : (
@@ -103,10 +103,10 @@ export default function DashboardPage() {
         </div>
 
         {loadingProps ? (
-          <p className="text-sm text-zinc-400">Loading…</p>
+          <p className="text-sm text-zinc-500">Loading…</p>
         ) : properties.length === 0 ? (
-          <div className="border-2 border-dashed border-zinc-200 rounded-2xl p-12 text-center">
-            <p className="text-zinc-400 text-sm">No properties yet.</p>
+          <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
+            <p className="text-zinc-500 text-sm">No properties yet.</p>
             <Link
               href="/properties/new"
               className="mt-4 inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
@@ -117,11 +117,11 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-4">
             {properties.map((p) => (
-              <div key={p.id} className="bg-white border border-zinc-200 rounded-xl p-5 flex items-center justify-between">
+              <div key={p.id} className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-zinc-900">{p.address_street}</p>
-                  <p className="text-sm text-zinc-500">{p.address_city}, {p.address_state}</p>
-                  <div className="flex gap-3 mt-1 text-xs text-zinc-400">
+                  <p className="font-medium text-zinc-100">{p.address_street}</p>
+                  <p className="text-sm text-zinc-400">{p.address_city}, {p.address_state}</p>
+                  <div className="flex gap-3 mt-1 text-xs text-zinc-500">
                     <span>{TYPE_LABELS[p.property_type] ?? p.property_type}</span>
                     {(p.bedrooms != null || p.bathrooms != null) && (
                       <>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
                 <div className="flex gap-2 items-center">
                   {confirmDeleteId === p.id ? (
                     <>
-                      <span className="text-xs text-zinc-500 mr-1">Delete this property?</span>
+                      <span className="text-xs text-zinc-400 mr-1">Delete this property?</span>
                       <button
                         onClick={() => handleDelete(p.id)}
                         className="text-sm px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -145,7 +145,7 @@ export default function DashboardPage() {
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="text-sm px-3 py-1.5 border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition-colors"
+                        className="text-sm px-3 py-1.5 border border-zinc-600 rounded-lg text-zinc-300 hover:bg-zinc-700 transition-colors"
                       >
                         Cancel
                       </button>
@@ -154,19 +154,19 @@ export default function DashboardPage() {
                     <>
                       <button
                         onClick={() => router.push(`/properties/${p.id}/edit`)}
-                        className="text-sm px-3 py-1.5 border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition-colors"
+                        className="text-sm px-3 py-1.5 border border-zinc-600 rounded-lg text-zinc-300 hover:bg-zinc-700 transition-colors"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => router.push(`/properties/${p.id}/analysis`)}
-                        className="text-sm px-3 py-1.5 border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition-colors"
+                        className="text-sm px-3 py-1.5 border border-zinc-600 rounded-lg text-zinc-300 hover:bg-zinc-700 transition-colors"
                       >
                         Analyze
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(p.id)}
-                        className="text-sm px-3 py-1.5 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                        className="text-sm px-3 py-1.5 border border-red-800 rounded-lg text-red-400 hover:bg-red-950 transition-colors"
                       >
                         Delete
                       </button>

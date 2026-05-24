@@ -71,23 +71,23 @@ const num = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl p-4">
-      <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-xl font-semibold text-zinc-900">{value}</p>
+    <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4">
+      <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">{label}</p>
+      <p className="text-xl font-semibold text-zinc-100">{value}</p>
     </div>
   );
 }
 
 function ScenarioCell({ value, isNeg }: { value: string; isNeg?: boolean }) {
   return (
-    <td className={`px-4 py-2 text-sm text-right font-medium ${isNeg ? "text-red-600" : "text-green-700"}`}>
+    <td className={`px-4 py-2 text-sm text-right font-medium ${isNeg ? "text-red-400" : "text-green-400"}`}>
       {value}
     </td>
   );
 }
 
 function cfColor(n: number) {
-  return n < 0 ? "text-red-600" : "text-green-700";
+  return n < 0 ? "text-red-400" : "text-green-400";
 }
 
 // ── CSV export ───────────────────────────────────────────────────────────────
@@ -202,36 +202,36 @@ export default function AnalysisPage() {
   };
 
   if (error) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-red-600">{error}</p>
+    <div className="min-h-screen flex items-center justify-center bg-zinc-900">
+      <p className="text-red-400">{error}</p>
     </div>
   );
 
   if (!data) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-zinc-400 text-sm">Running analysis…</p>
+    <div className="min-h-screen flex items-center justify-center bg-zinc-900">
+      <p className="text-zinc-500 text-sm">Running analysis…</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-900">
       {/* Nav */}
-      <nav className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
-        <span className="font-semibold text-zinc-900">REI</span>
-        <button onClick={() => router.push("/dashboard")} className="text-sm text-zinc-500 hover:text-zinc-800">
+      <nav className="bg-zinc-800 border-b border-zinc-700 px-6 py-4 flex items-center justify-between">
+        <span className="font-semibold text-zinc-100">REI</span>
+        <button onClick={() => router.push("/dashboard")} className="text-sm text-zinc-400 hover:text-zinc-100">
           ← Back to dashboard
         </button>
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">{address}</h1>
-          <p className="text-sm text-zinc-500 mt-1">Rental investment analysis · 30-year projection</p>
+          <h1 className="text-2xl font-semibold text-zinc-100">{address}</h1>
+          <p className="text-sm text-zinc-400 mt-1">Rental investment analysis · 30-year projection</p>
         </div>
 
         {/* Summary metrics */}
         <section>
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">Summary</h2>
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">Summary</h2>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <MetricCard label="Initial Investment" value={usd(data.initial_investment)} />
             <MetricCard label="Loan Amount" value={usd(data.loan_amount)} />
@@ -243,29 +243,33 @@ export default function AnalysisPage() {
 
         {/* Scenario comparison */}
         <section>
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">Scenario Comparison</h2>
-          <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">Scenario Comparison</h2>
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50">
-                  <th className="px-4 py-2 text-left text-zinc-600 font-medium">Metric</th>
-                  <th className="px-4 py-2 text-right text-zinc-600 font-medium">Low rent</th>
-                  <th className="px-4 py-2 text-right text-zinc-600 font-medium">Mid rent</th>
-                  <th className="px-4 py-2 text-right text-zinc-600 font-medium">High rent</th>
+                <tr className="border-b border-zinc-700 bg-zinc-700">
+                  <th className="px-4 py-2 text-left text-zinc-300 font-medium">Metric</th>
+                  <th className="px-4 py-2 text-right text-zinc-300 font-medium">Low rent</th>
+                  <th className="px-4 py-2 text-right text-zinc-300 font-medium">Mid rent</th>
+                  <th className="px-4 py-2 text-right text-zinc-300 font-medium">High rent</th>
                 </tr>
               </thead>
               <tbody>
-                {(["Monthly CF (Yr 1)", "Annual CF (Yr 1)", "CoC Return", "Break-even"] as const).map((label, i) => {
+                {(["Monthly CF (Yr 1)", "Annual CF (Yr 1)", "CoC Return", "Break-even", "Total out-of-pocket (30yr)"] as const).map((label, i) => {
                   const vals = (["low", "mid", "high"] as Scenario[]).map((s) => {
                     const sm = summaries[s]!;
+                    const proj = s === "low" ? data.projections_low : s === "high" ? data.projections_high : data.projections_mid;
                     if (i === 0) return { str: usd(sm.monthly_cash_flow_y1), neg: sm.monthly_cash_flow_y1 < 0 };
                     if (i === 1) return { str: usd(sm.annual_cash_flow_y1), neg: sm.annual_cash_flow_y1 < 0 };
                     if (i === 2) return { str: pct(sm.coc_return), neg: sm.coc_return < 0 };
-                    return { str: sm.break_even_year ? `Year ${sm.break_even_year}` : "Never", neg: !sm.break_even_year };
+                    if (i === 3) return { str: sm.break_even_year ? `Year ${sm.break_even_year}` : "Never", neg: !sm.break_even_year };
+                    const shortfalls = proj.reduce((sum, r) => sum + Math.min(0, r.net_cash_flow), 0);
+                    const total = data.initial_investment + Math.abs(shortfalls);
+                    return { str: usd(total), neg: shortfalls < 0 };
                   });
                   return (
-                    <tr key={label} className="border-b border-zinc-50">
-                      <td className="px-4 py-2 text-zinc-700 font-medium">{label}</td>
+                    <tr key={label} className="border-b border-zinc-700">
+                      <td className="px-4 py-2 text-zinc-200 font-medium">{label}</td>
                       {vals.map((v, j) => <ScenarioCell key={j} value={v.str} isNeg={v.neg} />)}
                     </tr>
                   );
@@ -278,31 +282,33 @@ export default function AnalysisPage() {
         {/* Chart */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">30-Year Projection</h2>
+            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">30-Year Projection</h2>
             <div className="flex items-center gap-3">
               <div className="flex rounded-lg border border-zinc-200 overflow-hidden text-sm">
                 {(["low", "mid", "high"] as Scenario[]).map((s) => (
                   <button key={s} onClick={() => setScenario(s)}
-                    className={`px-3 py-1 capitalize ${scenario === s ? "bg-blue-600 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}>
+                    className={`px-3 py-1 capitalize ${scenario === s ? "bg-blue-600 text-white" : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"}`}>
                     {s}
                   </button>
                 ))}
               </div>
               <button onClick={exportChart}
-                className="text-sm px-3 py-1 border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50">
+                className="text-sm px-3 py-1 border border-zinc-600 rounded-lg text-zinc-300 hover:bg-zinc-700">
                 Export JPG
               </button>
             </div>
           </div>
 
-          <div ref={chartRef} className="bg-white border border-zinc-200 rounded-xl p-4">
+          <div ref={chartRef} className="bg-zinc-800 border border-zinc-700 rounded-xl p-4">
             <ResponsiveContainer width="100%" height={360}>
               <ComposedChart data={projections} margin={{ top: 8, right: 60, left: 20, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} tick={{ fontSize: 12 }} />
-                <YAxis yAxisId="dollar" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="pct" orientation="right" tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+                <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2, fill: "#a1a1aa" }} tick={{ fontSize: 12, fill: "#a1a1aa" }} />
+                <YAxis yAxisId="dollar" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: "#a1a1aa" }} />
+                <YAxis yAxisId="pct" orientation="right" tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: "#a1a1aa" }} />
                 <Tooltip
+                  contentStyle={{ backgroundColor: "#27272a", border: "1px solid #3f3f46", borderRadius: "8px", color: "#f4f4f5" }}
+                  labelStyle={{ color: "#a1a1aa" }}
                   formatter={(value, name) => {
                     const n = Number(value);
                     const s = name as string;
@@ -311,58 +317,77 @@ export default function AnalysisPage() {
                   }}
                   labelFormatter={(label) => `Year ${label}`}
                 />
-                <Legend verticalAlign="top" height={36} />
+                <Legend verticalAlign="top" height={36} wrapperStyle={{ color: "#a1a1aa" }} />
                 <Line yAxisId="dollar" type="monotone" dataKey="re_value" name="RE Value" stroke="#10b981" dot={false} strokeWidth={2} />
                 <Line yAxisId="dollar" type="monotone" dataKey="stock_value" name={data.market_label} stroke="#8b5cf6" dot={false} strokeWidth={2} strokeDasharray="3 5" />
                 <Line yAxisId="pct" type="monotone" dataKey="cumulative_roi_pct" name="Cumulative ROI %" stroke="#f59e0b" dot={false} strokeWidth={2} strokeDasharray="5 3" />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Chart legend explanations */}
+          <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-4 space-y-3">
+            <p className="text-sm font-semibold text-zinc-200">The chart answers: does this property beat just investing in the market?</p>
+            <div className="space-y-2 text-sm text-zinc-300">
+              <div className="flex gap-2">
+                <span className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full bg-emerald-500"></span>
+                <p><span className="font-medium text-zinc-100">RE Value —</span> Your current equity (property value minus remaining loan balance) plus all the rent cash flows you have collected or covered over the years. Think of it as what you would walk away with — before agent fees — if you sold today.</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full bg-amber-400"></span>
+                <p><span className="font-medium text-zinc-100">Cumulative ROI % —</span> Your total gain or loss as a percentage of what you put in on day one (down payment + closing costs). Zero is breakeven; negative means the investment has not yet recovered its cost; positive means you are ahead.</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full bg-violet-500"></span>
+                <p><span className="font-medium text-zinc-100">S&P 500 Equivalent —</span> What that same initial capital would be worth if invested in an index fund, compounded at the historical 50-year average return. No additional contributions are assumed — any monthly shortfalls you cover out-of-pocket are not reflected here. See <span className="font-medium">Total out-of-pocket (30yr)</span> in the scenario table for the full capital picture.</p>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Year-by-year table */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">Year-by-Year Detail</h2>
+            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Year-by-Year Detail</h2>
             <button onClick={() => exportCSV(projections, scenario, address)}
-              className="text-sm px-3 py-1 border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50">
+              className="text-sm px-3 py-1 border border-zinc-600 rounded-lg text-zinc-300 hover:bg-zinc-700">
               Export CSV
             </button>
           </div>
 
-          <div className="bg-white border border-zinc-200 rounded-xl overflow-x-auto">
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-x-auto">
             <table className="text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50">
+                <tr className="border-b border-zinc-700 bg-zinc-700">
                   {["Yr", "Gross Rent", "Eff. Rent", "Mortgage", "Taxes", "HOA", "Mgmt", "Maint.", "Insurance", "PMI",
                     "Total Exp.", "Net CF", "Cum. CF", "Prop. Value", "Loan Bal.", "Equity", "Equity Gain", "RE Value", "Cumulative ROI %", "Stock Value"].map((h) => (
-                    <th key={h} className="px-3 py-2 text-right text-zinc-500 font-medium first:text-left">{h}</th>
+                    <th key={h} className="px-3 py-2 text-right text-zinc-300 font-medium first:text-left">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {projections.map((r) => (
-                  <tr key={r.year} className="border-b border-zinc-50 hover:bg-zinc-50">
-                    <td className="px-3 py-1.5 text-zinc-500 font-medium">{r.year}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.gross_rent)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.effective_rent)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.mortgage_payment)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.property_tax)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.hoa)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.management)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.maintenance)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.insurance)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.pmi)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.total_expenses)}</td>
+                  <tr key={r.year} className="border-b border-zinc-700 hover:bg-zinc-700">
+                    <td className="px-3 py-1.5 text-zinc-400 font-medium">{r.year}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.gross_rent)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.effective_rent)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.mortgage_payment)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.property_tax)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.hoa)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.management)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.maintenance)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.insurance)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.pmi)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.total_expenses)}</td>
                     <td className={`px-3 py-1.5 text-right font-medium ${cfColor(r.net_cash_flow)}`}>{usd(r.net_cash_flow)}</td>
                     <td className={`px-3 py-1.5 text-right font-medium ${cfColor(r.cumulative_cash_flow)}`}>{usd(r.cumulative_cash_flow)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.property_value)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.loan_balance)}</td>
-                    <td className="px-3 py-1.5 text-right text-zinc-700">{usd(r.equity)}</td>
-                    <td className="px-3 py-1.5 text-right text-green-700">{usd(r.equity_gain)}</td>
-                    <td className="px-3 py-1.5 text-right text-green-700">{usd(r.re_value)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.property_value)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.loan_balance)}</td>
+                    <td className="px-3 py-1.5 text-right text-zinc-300">{usd(r.equity)}</td>
+                    <td className="px-3 py-1.5 text-right text-green-400">{usd(r.equity_gain)}</td>
+                    <td className="px-3 py-1.5 text-right text-green-400">{usd(r.re_value)}</td>
                     <td className={`px-3 py-1.5 text-right font-medium ${cfColor(r.cumulative_roi_pct)}`}>{pct(r.cumulative_roi_pct)}</td>
-                    <td className="px-3 py-1.5 text-right text-purple-700">{usd(r.stock_value)}</td>
+                    <td className="px-3 py-1.5 text-right text-purple-400">{usd(r.stock_value)}</td>
                   </tr>
                 ))}
               </tbody>
