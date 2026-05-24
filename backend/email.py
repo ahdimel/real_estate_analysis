@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 resend.api_key = os.getenv("RESEND_API_KEY", "")
-FROM_ADDRESS = "onboarding@resend.dev"   # swap for verified domain before go-live
+FROM_ADDRESS = "noreply@reianalyzer.online"
 APP_NAME = "REI Analyzer"
 
 

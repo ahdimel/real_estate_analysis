@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 
 const US_STATES = [
@@ -25,24 +25,24 @@ export const EMPTY_FORM = {
   square_feet: "",
   purchase_price: "",
   annual_interest_rate: "",
-  mortgage_term: "",
-  down_payment: "",
+  mortgage_term: "30",
+  down_payment: "20",
   closing_costs: "",
-  initial_repairs: "",
-  pmi_monthly: "",
+  initial_repairs: "0",
+  pmi_monthly: "0",
   rent_lower: "",
   rent_upper: "",
   property_tax_annual: "",
   property_tax_url: "",
   hoa_annual: "",
-  property_management_annual: "",
-  vacancy_days_annual: "",
-  maintenance_annual: "",
+  property_management_annual: "0",
+  vacancy_days_annual: "30",
+  maintenance_annual: "2500",
   insurance_annual: "",
-  rent_increase_pct: "",
-  maintenance_increase_pct: "",
-  appreciation_rate_pct: "",
-  property_tax_increase_pct: "",
+  rent_increase_pct: "2",
+  maintenance_increase_pct: "2",
+  appreciation_rate_pct: "3",
+  property_tax_increase_pct: "2",
 };
 
 export type FormData = typeof EMPTY_FORM;
@@ -114,11 +114,11 @@ function SectionHeader({ title }: { title: string }) {
 
 function Field({
   label, name, type = "text", required = true, min, max, step,
-  prefix, suffix, tooltip, children, value, onChange,
+  prefix, suffix, tooltip, hint, children, value, onChange,
 }: {
   label: string; name: string; type?: string; required?: boolean;
   min?: string; max?: string; step?: string; prefix?: string; suffix?: string;
-  tooltip?: string; children?: React.ReactNode; value: string;
+  tooltip?: string; hint?: string; children?: React.ReactNode; value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
 }) {
   const inputClass =
@@ -145,6 +145,7 @@ function Field({
           {suffix && <span className="text-sm font-medium text-zinc-600">{suffix}</span>}
         </div>
       )}
+      {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
     </div>
   );
 }
@@ -166,6 +167,18 @@ export default function PropertyForm({
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [scrapeResult, setScrapeResult] = useState<{ filled: string[]; error?: string } | null>(null);
+  const [rateHint, setRateHint] = useState("Default rate pulled from Freddie Mac's weekly average for 30-yr prime fixed-rate mortgages");
+
+  useEffect(() => {
+    if (initialValues?.annual_interest_rate) return;
+    apiFetch("/market/mortgage-rate")
+      .then((r) => r.json())
+      .then((data: { rate_pct: number; label: string }) => {
+        setForm((prev) => ({ ...prev, annual_interest_rate: String(data.rate_pct) }));
+        setRateHint(`Default pulled from Freddie Mac's weekly average for 30-yr prime fixed-rate mortgages (${data.rate_pct}%)`);
+      })
+      .catch(() => {});
+  }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -193,6 +206,13 @@ export default function PropertyForm({
           if (key in updated && val != null) {
             (updated as Record<string, string>)[key] = String(val);
             filled.push(key.replace(/_/g, " "));
+          }
+        }
+        if (updated.purchase_price && !prev.closing_costs) {
+          const price = parseFloat(updated.purchase_price);
+          if (!isNaN(price)) {
+            updated.closing_costs = String(Math.round(price * 0.025));
+            filled.push("closing costs");
           }
         }
         return updated;
@@ -290,6 +310,7 @@ export default function PropertyForm({
           value={form.purchase_price} onChange={handleChange} />
         <Field label="Annual interest rate" name="annual_interest_rate" type="number" min="0" max="25" step="0.01" suffix="%"
           tooltip="Fixed annual rate on your mortgage loan."
+          hint={rateHint}
           value={form.annual_interest_rate} onChange={handleChange} />
         <Field label="Mortgage term" name="mortgage_term" type="number" min="1" max="45" suffix="years"
           value={form.mortgage_term} onChange={handleChange} />

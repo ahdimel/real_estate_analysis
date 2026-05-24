@@ -1,6 +1,14 @@
 import json
+import os
 import re
-from curl_cffi import requests
+
+import requests as std_requests
+from curl_cffi import requests as cffi_requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -42,7 +50,17 @@ def scrape_zillow(url: str) -> dict:
     Only includes fields that were actually found; missing fields are omitted.
     Raises ValueError on fetch failure or if property data cannot be located.
     """
-    r = requests.get(url, impersonate="chrome124", headers=HEADERS, timeout=20)
+    if SCRAPER_API_KEY:
+        # Production: route through ScraperAPI residential proxies
+        r = std_requests.get(
+            "https://api.scraperapi.com",
+            params={"api_key": SCRAPER_API_KEY, "url": url},
+            timeout=60,
+        )
+    else:
+        # Local dev: spoof browser TLS fingerprint directly
+        r = cffi_requests.get(url, impersonate="chrome124", headers=HEADERS, timeout=20)
+
     if r.status_code == 403:
         raise ValueError("Zillow blocked this request. URL scraping works when running the app locally. Please fill in the form manually.")
     if r.status_code != 200:

@@ -20,6 +20,10 @@ export default function Home() {
         <p className="text-zinc-500">Real Estate Investment Analyzer</p>
       </div>
 
+      <div className="max-w-md rounded-lg border border-zinc-200 bg-white px-6 py-4 text-sm text-zinc-600 leading-relaxed shadow-sm">
+        Welcome! REI Analyzer will help you run the numbers on properties you&apos;re interested in acquiring. Let&apos;s see if they make sense as investment rental properties. Alternatively, this app will also help you decide on whether to continue renting, or to buy your own house. Let&apos;s get cranking!
+      </div>
+
       <div className="flex gap-3">
         <Link
           href="/login"
