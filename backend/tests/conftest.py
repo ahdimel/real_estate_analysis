@@ -1,3 +1,11 @@
+import os
+
+# Set required env vars before importing the app so the lifespan validation
+# passes. Values are dummies — email is globally mocked, JWTs only need a
+# non-empty key for signing/verification to work in tests.
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
+os.environ.setdefault("RESEND_API_KEY", "re_test_placeholder")
+
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient

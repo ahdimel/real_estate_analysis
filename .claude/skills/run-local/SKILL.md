@@ -19,15 +19,15 @@ Never rely on `python`, `python3`, or `uvicorn` from PATH — they will point to
 
 Run from the repo root `/Users/ahdimel/Documents/vscode/REI`.
 
-**If the DB schema changed** (new columns added, columns removed), delete the local SQLite DB first:
+**If the DB schema changed** (new Alembic migration added, or starting fresh), delete the local SQLite DB and let the migration recreate it:
 ```bash
 rm -f /Users/ahdimel/Documents/vscode/REI/rei.db
 ```
-The schema recreates automatically on backend startup via `create_tables()`.
+The migration will recreate it on the next backend start — no manual SQL needed.
 
-**Backend:**
+**Backend** (runs migration first, then starts the server):
 ```bash
-/Users/ahdimel/Documents/vscode/REI/venv/bin/python -m uvicorn backend.main:app --reload --port 8000 > /tmp/rei-backend.log 2>&1 &
+/Users/ahdimel/Documents/vscode/REI/venv/bin/python -m alembic upgrade head && /Users/ahdimel/Documents/vscode/REI/venv/bin/python -m uvicorn backend.main:app --reload --port 8000 > /tmp/rei-backend.log 2>&1 &
 ```
 
 **Wait for backend, then check health:**

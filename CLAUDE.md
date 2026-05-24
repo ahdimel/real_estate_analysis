@@ -115,8 +115,14 @@ It sets `Content-Type: application/json` and, when `token` is provided, adds `Au
 ### Database — SQLite / PostgreSQL dual mode
 `database.py` auto-detects from `DATABASE_URL`. SQLite uses `check_same_thread=False`. Railway injects `postgres://` — the code rewrites it to `postgresql://` (SQLAlchemy requirement).
 
-**Schema management: `create_tables()` only — Alembic is NOT used.**
-`alembic` appears in `requirements.txt` (installed as a dependency) but is not configured and has no migrations. Schema is created via `Base.metadata.create_all()` on app startup. For local schema changes: `rm rei.db` and restart. For production PostgreSQL schema changes: you must `ALTER TABLE` manually or connect to the Railway DB and run SQL directly — there is no migration tooling set up.
+**Schema management: Alembic migrations.**
+`alembic/` is fully configured. `alembic/env.py` reads `DATABASE_URL` from the environment and uses `render_as_batch=True` so SQLite can handle `ALTER TABLE` via table recreation.
+
+- **Procfile / `railway.toml`**: run `alembic upgrade head` before uvicorn starts. Migrations apply automatically on every deploy.
+- **Adding a column**: `alembic revision --autogenerate -m "describe_change"`, review the generated file in `alembic/versions/`, commit, deploy. Never hand-write `ALTER TABLE` SQL.
+- **Local schema reset**: `rm rei.db` — the next backend start runs `alembic upgrade head` and recreates the DB from scratch.
+- **`Base.metadata.create_all()`** is used only in the test suite (`conftest.py`). The production app never calls it directly.
+- **First production deploy after Alembic was added**: the existing DB must be stamped with `alembic stamp head` before deploying. See `.claude/skills/deploy-prod/SKILL.md` for the exact procedure.
 
 ### Analysis engine
 `backend/analysis/rental.py` — `analyse_rental(prop, db)` runs three scenarios (low/mid/high rent):
@@ -200,8 +206,10 @@ NEXT_PUBLIC_API_URL=https://backend-production-8eb7.up.railway.app
 ## Running Locally
 
 ```bash
-# Backend (from repo root)
-python -m uvicorn backend.main:app --reload
+# Backend — run migration first, then start server (from repo root)
+# Use the REI venv explicitly; never rely on PATH python/uvicorn
+/path/to/venv/bin/python -m alembic upgrade head
+/path/to/venv/bin/python -m uvicorn backend.main:app --reload
 # → http://localhost:8000/docs
 
 # Frontend (from repo root)
@@ -211,6 +219,8 @@ cd frontend && npm run dev
 # Tests (must all pass before deploying)
 pytest backend/tests/
 ```
+
+> See `.claude/skills/run-local/SKILL.md` for the exact venv paths and background-process commands.
 
 ---
 
@@ -307,7 +317,42 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ## Pending / Next Steps
 
-No outstanding items — domain is live, email is verified, both services deployed.
+The following production-hardening improvements were identified and scoped but not yet implemented.
+A future agent can pick up any of these — the context here is enough to start.
+
+### 4. Input validation on `PropertyCreate`
+The Pydantic schema accepts any numeric value. A negative purchase price, a 150% down payment,
+or a 0-year mortgage term reach the analysis engine and produce garbage output (NaN/inf or
+divide-by-zero). Add field-level validators to `backend/schemas/property.py`:
+- `purchase_price > 0`
+- `down_payment` in range 0–100
+- `mortgage_term` in `{10, 15, 20, 30}`
+- `rent_lower <= rent_upper`
+- `annual_interest_rate > 0`
+- `vacancy_days_annual` in 0–365
+
+### 5. Rate limiting on expensive endpoints
+Two endpoints have no per-user throttle:
+- `POST /scraper/zillow` — hits ScraperAPI, which costs money per request
+- `GET /properties/{id}/analysis` — runs a full 30-year 3-scenario projection on every call
+
+Add `slowapi` (starlette-native, ~10-line integration) with a per-IP or per-user limit.
+Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
+
+### 6. Structured logging / error surfacing
+Several `except Exception: return FALLBACK` blocks silently swallow errors with no visibility:
+- `backend/analysis/market.py` — Yahoo Finance failures
+- `backend/analysis/mortgage_rate.py` — Freddie Mac CSV fetch failures
+- `backend/routes/auth.py` — Resend email send failures
+
+Replace bare `except Exception:` with `logging.exception(...)` before returning the fallback,
+so Railway logs capture frequency and stack traces without changing user-facing behaviour.
+
+### 7. Token refresh endpoint
+JWT expiry is 30 minutes with no refresh path. Users filling in a long property form get a
+silent 401 that looks like a broken app. Add `POST /auth/refresh` that accepts a valid
+(non-expired) token and returns a new one. Frontend should call this on 401 responses before
+showing the login page.
 
 ---
 
@@ -315,12 +360,12 @@ No outstanding items — domain is live, email is verified, both services deploy
 
 - **`down_payment` is a percentage, not dollars.** Stored as `Numeric(5,2)`, represents 0–100. A 20% down payment is stored as `20.00`, not `200000.00`. The analysis engine divides by 100 to get the decimal.
 - **SQLite naive datetimes**: SQLite strips timezone info on write. Use `.replace(tzinfo=timezone.utc)` when comparing a DB datetime to `datetime.now(timezone.utc)`. Do NOT use `.astimezone()` — it raises on naive datetimes.
-- **Alembic is in requirements but not used.** Don't run `alembic upgrade head`. Schema is managed by `create_tables()` / `Base.metadata.create_all()` on startup.
 - **Railway Source Root**: leave blank in the Railway dashboard. Setting it causes Railway to look for `frontend/frontend/` instead of `frontend/`.
 - **Railway redeploys via dashboard**: dashboard-triggered redeploys have no code if the service has no connected GitHub repo. Always use `railway up` for deploys.
 - **Two `railway.toml` files**: root `railway.toml` is for the backend; `frontend/railway.toml` is for the frontend. Do not merge or move them.
 - **10-property cap**: `PROPERTY_LIMIT = 10` in `backend/routes/properties.py`, enforced at create time with a 400 error.
 - **Market CAGR never auto-refreshes**: once stored, it stays forever. Use `POST /market/refresh` to force a Yahoo Finance refetch.
-- **Production DB schema changes**: no Alembic. If the DB is uninitialised (empty), `create_tables()` builds the full current schema on first startup — no manual SQL needed. If the DB already has live data, new columns must be added via `ALTER TABLE` *before* deploying or the backend crashes. See `.claude/skills/deploy-prod/SKILL.md` for the exact procedure (uses psycopg2 via the REI venv + `DATABASE_PUBLIC_URL` from `railway variables --service Postgres`).
-- **`railway run` does not inject `DATABASE_URL` locally**: the PostgreSQL addon URL is only reachable inside Railway's network. To run SQL from your laptop, get `DATABASE_PUBLIC_URL` from `railway variables --service Postgres` and connect directly — `psql` is not installed locally, so use psycopg2.
-- **Check production DB state before assuming migration is needed**: `SELECT tablename FROM pg_tables WHERE schemaname='public'` — an empty result means the DB is fresh and `create_tables()` will handle everything.
+- **Adding a new NOT NULL column without a default**: add it as nullable first, backfill values, then tighten to NOT NULL in a second migration. Doing it in one step will fail on any table that already has rows.
+- **`railway run` does not inject `DATABASE_URL` locally**: the PostgreSQL addon URL is only reachable inside Railway's network. To run Alembic or psycopg2 against production from your laptop, get `DATABASE_PUBLIC_URL` from `railway variables --service Postgres` and pass it as `DATABASE_URL=<value> alembic ...`.
+- **Required env vars at startup**: `SECRET_KEY` and `RESEND_API_KEY` must be set. The app raises `RuntimeError` on startup if either is missing — this is intentional. Set them in `.env` locally and in Railway environment variables for production.
+- **Health check pings the DB**: `GET /health` now runs `SELECT 1`. A 503 response means the DB is unreachable, not just that the process is down.
