@@ -66,7 +66,8 @@ REI/
 │       ├── conftest.py             # pytest fixtures: file-based SQLite + TestClient (NOT in-memory)
 │       ├── test_auth.py            # Registration, verification, login flows
 │       ├── test_properties.py      # CRUD + ownership isolation
-│       └── test_analysis.py        # Analysis math unit tests + full flow
+│       ├── test_analysis.py        # Analysis math unit tests + full API flow
+│       └── test_market.py          # Market rate endpoint + caching behaviour
 └── frontend/
     ├── railway.toml                # FRONTEND: startCommand="node_modules/.bin/next start -p $PORT"
     ├── .env.local                  # NEXT_PUBLIC_API_URL=http://localhost:8000 (local only)
@@ -217,21 +218,31 @@ pytest backend/tests/
 
 `backend/tests/conftest.py` creates a **file-based** SQLite test DB (`test.db`) — not in-memory. Each test gets a fresh schema via the `setup_test_db` autouse fixture (creates tables before, drops after). `client` fixture overrides `get_db` with the test session.
 
-**`mock_email` fixture is per-file, not in `conftest.py`.** Each test file (`test_auth.py`, `test_properties.py`, `test_analysis.py`) must define its own:
-```python
-@pytest.fixture(autouse=True)
-def mock_email():
-    with patch("backend.routes.auth.send_verification_email"):
-        yield
-```
-If you add a new test file that calls registration, add this fixture — otherwise real emails fire.
+### Shared fixtures in `conftest.py`
 
-All registration flows in tests use the two-step helper pattern:
+| Fixture | What it provides |
+|---|---|
+| `mock_email` (autouse) | Patches `send_verification_email` globally — no real emails fire |
+| `valid_property` | Fresh copy of the standard 450k Austin property payload dict |
+| `get_code(email)` | Factory: looks up the pending verification code from the test DB |
+| `auth_token` | Registers + verifies alice, returns her JWT |
+
+**`mock_email` is defined once in `conftest.py` as autouse** — do not redefine it in new test files. The one exception is `test_auth.py`, which overrides it locally to expose the mock object for call assertions.
+
+**`valid_property` is the single source of truth for the property payload.** Never define a separate `VALID_PROPERTY` dict in a test file — when the schema changes, only `conftest.py` needs updating.
+
+Tests that need a logged-in user declare `auth_token` as a parameter:
 ```python
-def _register_and_verify(client, user=VALID_USER) -> dict:
-    client.post("/auth/register", json=user)
-    code = _get_code(client, user["email"])  # reads from test DB
-    return client.post("/auth/verify", json={"email": user["email"], "code": code}).json()
+def test_something(client, auth_token, valid_property):
+    res = client.post("/properties", json=valid_property, headers={"Authorization": f"Bearer {auth_token}"})
+```
+
+Tests involving a second user create that user inline and use the `get_code` fixture to complete verification:
+```python
+def test_two_users(client, auth_token, get_code):
+    bob = {"username": "bob", "email": "bob@example.com", "password": "password2"}
+    client.post("/auth/register", json=bob)
+    token_b = client.post("/auth/verify", json={"email": bob["email"], "code": get_code(bob["email"])}).json()["access_token"]
 ```
 
 ---
@@ -311,3 +322,4 @@ No outstanding items — domain is live, email is verified, both services deploy
 - **10-property cap**: `PROPERTY_LIMIT = 10` in `backend/routes/properties.py`, enforced at create time with a 400 error.
 - **Market CAGR never auto-refreshes**: once stored, it stays forever. Use `POST /market/refresh` to force a Yahoo Finance refetch.
 - **Production DB schema changes**: no Alembic. Connect to the Railway PostgreSQL instance and run `ALTER TABLE` SQL manually. Or drop and recreate (loses data).
+- **`insurance_increase_pct` column not yet on production DB**: the column was added to the SQLAlchemy model and deployed, but the Railway PostgreSQL instance needs a manual migration before the backend will start cleanly: `ALTER TABLE properties ADD COLUMN insurance_increase_pct NUMERIC(5,1) NOT NULL DEFAULT 4.0;`
