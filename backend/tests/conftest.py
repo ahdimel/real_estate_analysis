@@ -20,8 +20,8 @@ TEST_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Shared user for auth fixtures — override locally if a test needs a different user
-_TEST_USER = {"username": "alice", "email": "alice@example.com", "password": "password1"}
+# Shared user for auth fixtures — import this in test modules instead of redefining
+TEST_USER = {"username": "alice", "email": "alice@example.com", "password": "strongpass1"}
 
 # Single source of truth for the property payload used across test modules
 _VALID_PROPERTY_DATA = {
@@ -107,7 +107,7 @@ def get_code(client):
 @pytest.fixture
 def auth_token(client, get_code):
     """Register and verify alice, returning her JWT access token."""
-    client.post("/auth/register", json=_TEST_USER)
-    code = get_code(_TEST_USER["email"])
-    data = client.post("/auth/verify", json={"email": _TEST_USER["email"], "code": code}).json()
+    client.post("/auth/register", json=TEST_USER)
+    code = get_code(TEST_USER["email"])
+    data = client.post("/auth/verify", json={"email": TEST_USER["email"], "code": code}).json()
     return data["access_token"]

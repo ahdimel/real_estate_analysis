@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
+from backend.analysis.market import get_market_cagr
 
 
 @dataclass
@@ -168,15 +169,7 @@ def _scenario_summary(projections: list[YearProjection], initial_investment: flo
     )
 
 
-def analyse_rental(
-    prop,
-    db,
-    _test_market: tuple[float, str] | None = None,
-) -> AnalysisResult:
-    """
-    _test_market: pass a (cagr_decimal, label) tuple in tests to skip DB/network.
-    """
-    from backend.analysis.market import get_market_cagr
+def analyse_rental(prop) -> AnalysisResult:
 
     purchase_price = float(prop.purchase_price)
     down_pct = float(prop.down_payment)
@@ -194,7 +187,7 @@ def analyse_rental(
     rent_high = float(prop.rent_upper)
     rent_mid = (rent_low + rent_high) / 2
 
-    market_cagr, market_label = _test_market if _test_market else get_market_cagr(db)
+    market_cagr, market_label = get_market_cagr()
 
     common = dict(
         loan_amount=loan_amount,

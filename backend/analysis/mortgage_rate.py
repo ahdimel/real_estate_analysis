@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
+from backend.models.settings import upsert_setting
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,8 @@ def get_mortgage_rate(db: Session) -> tuple[float, str]:
 
 def _fetch_and_store(db: Session) -> tuple[float, str]:
     rate = _fetch_from_freddie_mac()
-    _upsert(db, RATE_KEY, str(rate))
-    _upsert(db, FETCHED_AT_KEY, datetime.now(timezone.utc).isoformat())
+    upsert_setting(db, RATE_KEY, str(rate))
+    upsert_setting(db, FETCHED_AT_KEY, datetime.now(timezone.utc).isoformat())
     db.commit()
     return rate, _label(rate)
 
@@ -53,13 +54,3 @@ def _fetch_from_freddie_mac() -> float:
 
 def _label(rate: float) -> str:
     return f"Freddie Mac weekly avg: {rate:.2f}%"
-
-
-def _upsert(db: Session, key: str, value: str) -> None:
-    from backend.models.settings import AppSetting
-
-    row = db.query(AppSetting).filter(AppSetting.key == key).first()
-    if row:
-        row.value = value
-    else:
-        db.add(AppSetting(key=key, value=value))

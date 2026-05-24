@@ -44,7 +44,7 @@ REI/
 │   │   ├── user.py                 # User table (id, username, email, hashed_password, is_verified)
 │   │   ├── property.py             # Property table (all intake fields)
 │   │   ├── email_verification.py   # Pending registrations (email unique, expires_at)
-│   │   └── settings.py             # AppSetting key/value table — stores market CAGR
+│   │   └── settings.py             # AppSetting key/value table — caches mortgage rate
 │   ├── schemas/
 │   │   ├── __init__.py             # (empty)
 │   │   ├── user.py                 # UserRegister, UserLogin, UserOut, Token, VerifyCode
@@ -54,11 +54,11 @@ REI/
 │   │   ├── auth.py                 # POST /auth/register, /auth/verify, /auth/login
 │   │   ├── properties.py           # CRUD /properties — user-scoped, 10-property cap
 │   │   ├── analysis.py             # GET /properties/{id}/analysis
-│   │   ├── market.py               # GET /market/rate, POST /market/rate/refresh, GET /market/mortgage-rate
+│   │   ├── market.py               # GET /market/rate, GET /market/mortgage-rate
 │   │   └── scraper.py              # POST /scraper/zillow
 │   ├── analysis/
 │   │   ├── rental.py               # Core engine: analyse_rental() → AnalysisResult
-│   │   ├── market.py               # get_market_cagr(db): fetches ^GSPC 50yr CAGR, caches in DB
+│   │   ├── market.py               # get_market_cagr(): returns hardcoded 8.5% S&P 500 50-yr avg
 │   │   └── mortgage_rate.py        # get_mortgage_rate(db): fetches Freddie Mac 30yr rate, caches 7 days
 │   ├── scraper/
 │   │   └── zillow.py               # scrape_zillow(url) → form-field dict
@@ -67,7 +67,7 @@ REI/
 │       ├── test_auth.py            # Registration, verification, login flows
 │       ├── test_properties.py      # CRUD + ownership isolation
 │       ├── test_analysis.py        # Analysis math unit tests + full API flow
-│       └── test_market.py          # Market rate endpoint + caching behaviour
+│       └── test_market.py          # Market rate endpoint
 └── frontend/
     ├── railway.toml                # FRONTEND: startCommand="node_modules/.bin/next start -p $PORT"
     ├── .env.local                  # NEXT_PUBLIC_API_URL=http://localhost:8000 (local only)
@@ -125,7 +125,7 @@ It sets `Content-Type: application/json` and, when `token` is provided, adds `Au
 - **First production deploy after Alembic was added**: the existing DB must be stamped with `alembic stamp head` before deploying. See `.claude/skills/deploy-prod/SKILL.md` for the exact procedure.
 
 ### Analysis engine
-`backend/analysis/rental.py` — `analyse_rental(prop, db)` runs three scenarios (low/mid/high rent):
+`backend/analysis/rental.py` — `analyse_rental(prop)` runs three scenarios (low/mid/high rent):
 
 ```
 initial_investment = down_amount + closing_costs + initial_repairs
@@ -142,7 +142,7 @@ grm_mid            = purchase_price / (rent_mid × 12)
 
 PMI drops off when `loan_balance ≤ 0.80 × purchase_price`.
 
-Market CAGR = ^GSPC 50-year CAGR, fetched once from Yahoo Finance on first request and cached permanently in the `app_settings` DB table. Falls back to 8.98% if Yahoo Finance is unreachable. Never auto-refreshes — call `POST /market/refresh` to force update.
+Market CAGR = hardcoded 8.5% (`MARKET_CAGR` constant in `backend/analysis/market.py`). This is the S&P 500 50-year historical price return average, derived from verified historical closing prices. No DB storage, no live fetch. To update the baseline, change the constant and redeploy.
 
 ### Zillow scraper — dual mode
 - **Local dev** (no `SCRAPER_API_KEY`): curl_cffi impersonates Chrome 124 TLS fingerprint directly
@@ -338,7 +338,6 @@ Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
 - **Railway redeploys via dashboard**: dashboard-triggered redeploys have no code if the service has no connected GitHub repo. Always use `railway up` for deploys.
 - **Two `railway.toml` files**: root `railway.toml` is for the backend; `frontend/railway.toml` is for the frontend. Do not merge or move them.
 - **10-property cap**: `PROPERTY_LIMIT = 10` in `backend/routes/properties.py`, enforced at create time with a 400 error.
-- **Market CAGR never auto-refreshes**: once stored, it stays forever. Use `POST /market/refresh` to force a Yahoo Finance refetch.
 - **JWT refresh**: `POST /auth/refresh` issues a new 30-min token for any valid non-expired token. Frontend pages use `fetchWithAuth` (from `AuthContext`) instead of `apiFetch` directly — it automatically retries on 401 after a refresh attempt, then calls `logout()` if the refresh also fails.
 - **`mortgage_term` is an enum, not a free integer**: valid values are `{10, 15, 20, 30}`. The backend rejects any other value with 422. The form renders a dropdown, not a free-text field.
 - **`annual_interest_rate` must be > 0**: `ge=0.01` on the Pydantic schema. A 0% rate would produce divide-by-zero in mortgage calculations.

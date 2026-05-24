@@ -26,5 +26,5 @@ def get_analysis(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    result = analyse_rental(prop, db)
+    result = analyse_rental(prop)
     return AnalysisResponseOut(**asdict(result))

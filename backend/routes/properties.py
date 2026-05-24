@@ -6,7 +6,7 @@ from backend.database import get_db
 from backend.dependencies import get_current_user
 from backend.models.property import Property
 from backend.models.user import User
-from backend.schemas.property import PropertyCreate, PropertyOut
+from backend.schemas.property import PropertyCreate, PropertyOut, PropertySummaryOut
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
@@ -33,7 +33,7 @@ def create_property(
     return prop
 
 
-@router.get("", response_model=List[PropertyOut])
+@router.get("", response_model=List[PropertySummaryOut])
 def list_properties(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

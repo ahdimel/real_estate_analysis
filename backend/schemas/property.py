@@ -52,6 +52,19 @@ class PropertyCreate(BaseModel):
         return self
 
 
+class PropertySummaryOut(BaseModel):
+    id: int
+    address_street: str
+    address_city: str
+    address_state: str
+    property_type: str
+    purchase_price: float
+    bedrooms: Optional[int]
+    bathrooms: Optional[int]
+
+    model_config = {"from_attributes": True}
+
+
 class PropertyOut(BaseModel):
     id: int
     mls_id: Optional[str]

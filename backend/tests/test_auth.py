@@ -3,42 +3,32 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from backend.models.email_verification import EmailVerification
+from backend.tests.conftest import TEST_USER
 
 REGISTER_URL = "/auth/register"
 VERIFY_URL = "/auth/verify"
 LOGIN_URL = "/auth/login"
 REFRESH_URL = "/auth/refresh"
 
-VALID_USER = {"username": "alice", "email": "alice@example.com", "password": "strongpass1"}
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
 def mock_email():
-    """Prevent any real email from being sent during tests."""
+    """Override conftest autouse fixture to expose mock for call assertions."""
     with patch("backend.routes.auth.send_verification_email") as m:
         yield m
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _get_code(client, email: str) -> str:
-    """Read the pending verification code straight from the test DB."""
-    from backend.database import get_db
-    db = next(client.app.dependency_overrides[get_db]())
-    row = db.query(EmailVerification).filter(EmailVerification.email == email).first()
-    assert row is not None, f"No pending verification found for {email}"
-    return row.code
-
-
-def _register_and_verify(client, user: dict = None) -> dict:
+def _register_and_verify(client, get_code, user: dict = None) -> dict:
     """Full two-step registration. Returns the Token dict."""
     if user is None:
-        user = VALID_USER
+        user = TEST_USER
     res = client.post(REGISTER_URL, json=user)
     assert res.status_code == 202, res.json()
-    code = _get_code(client, user["email"])
+    code = get_code(user["email"])
     res2 = client.post(VERIFY_URL, json={"email": user["email"], "code": code})
     assert res2.status_code == 201, res2.json()
     return res2.json()
@@ -47,43 +37,43 @@ def _register_and_verify(client, user: dict = None) -> dict:
 # ── /auth/register tests ──────────────────────────────────────────────────────
 
 def test_register_sends_code(client, mock_email):
-    res = client.post(REGISTER_URL, json=VALID_USER)
+    res = client.post(REGISTER_URL, json=TEST_USER)
     assert res.status_code == 202
     mock_email.assert_called_once()
 
 
-def test_register_duplicate_username(client):
-    _register_and_verify(client)
-    res = client.post(REGISTER_URL, json={**VALID_USER, "email": "other@example.com"})
+def test_register_duplicate_username(client, get_code):
+    _register_and_verify(client, get_code)
+    res = client.post(REGISTER_URL, json={**TEST_USER, "email": "other@example.com"})
     assert res.status_code == 400
     assert "username" in res.json()["detail"].lower()
 
 
-def test_register_duplicate_email(client):
-    _register_and_verify(client)
-    res = client.post(REGISTER_URL, json={**VALID_USER, "username": "bob"})
+def test_register_duplicate_email(client, get_code):
+    _register_and_verify(client, get_code)
+    res = client.post(REGISTER_URL, json={**TEST_USER, "username": "bob"})
     assert res.status_code == 400
     assert "email" in res.json()["detail"].lower()
 
 
 def test_register_cooldown(client):
-    client.post(REGISTER_URL, json=VALID_USER)
-    res = client.post(REGISTER_URL, json=VALID_USER)
+    client.post(REGISTER_URL, json=TEST_USER)
+    res = client.post(REGISTER_URL, json=TEST_USER)
     assert res.status_code == 429
     assert "wait" in res.json()["detail"].lower()
 
 
 # ── /auth/verify tests ────────────────────────────────────────────────────────
 
-def test_verify_success_returns_token(client):
-    token_data = _register_and_verify(client)
+def test_verify_success_returns_token(client, get_code):
+    token_data = _register_and_verify(client, get_code)
     assert "access_token" in token_data
     assert token_data["token_type"] == "bearer"
 
 
 def test_verify_wrong_code(client):
-    client.post(REGISTER_URL, json=VALID_USER)
-    res = client.post(VERIFY_URL, json={"email": VALID_USER["email"], "code": "000000"})
+    client.post(REGISTER_URL, json=TEST_USER)
+    res = client.post(VERIFY_URL, json={"email": TEST_USER["email"], "code": "000000"})
     assert res.status_code == 400
     assert "invalid" in res.json()["detail"].lower()
 
@@ -95,51 +85,51 @@ def test_verify_no_pending(client):
 
 
 def test_verify_expired_code(client):
-    client.post(REGISTER_URL, json=VALID_USER)
+    client.post(REGISTER_URL, json=TEST_USER)
 
     from backend.database import get_db
     db = next(client.app.dependency_overrides[get_db]())
-    row = db.query(EmailVerification).filter(EmailVerification.email == VALID_USER["email"]).first()
+    row = db.query(EmailVerification).filter(EmailVerification.email == TEST_USER["email"]).first()
     row.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
     db.commit()
 
-    res = client.post(VERIFY_URL, json={"email": VALID_USER["email"], "code": row.code})
+    res = client.post(VERIFY_URL, json={"email": TEST_USER["email"], "code": row.code})
     assert res.status_code == 400
     assert "expired" in res.json()["detail"].lower()
 
 
-def test_verify_deletes_pending_row(client):
-    _register_and_verify(client)
+def test_verify_deletes_pending_row(client, get_code):
+    _register_and_verify(client, get_code)
 
     from backend.database import get_db
     db = next(client.app.dependency_overrides[get_db]())
-    row = db.query(EmailVerification).filter(EmailVerification.email == VALID_USER["email"]).first()
+    row = db.query(EmailVerification).filter(EmailVerification.email == TEST_USER["email"]).first()
     assert row is None
 
 
-def test_user_cap_enforced(client):
-    client.post(REGISTER_URL, json=VALID_USER)
-    code = _get_code(client, VALID_USER["email"])
+def test_user_cap_enforced(client, get_code):
+    client.post(REGISTER_URL, json=TEST_USER)
+    code = get_code(TEST_USER["email"])
     with patch("backend.routes.auth.USER_CAP", 0):
-        res = client.post(VERIFY_URL, json={"email": VALID_USER["email"], "code": code})
+        res = client.post(VERIFY_URL, json={"email": TEST_USER["email"], "code": code})
     assert res.status_code == 403
     assert "limit" in res.json()["detail"].lower() or "closed" in res.json()["detail"].lower()
 
 
 # ── /auth/login tests ─────────────────────────────────────────────────────────
 
-def test_login_success(client):
-    _register_and_verify(client)
-    res = client.post(LOGIN_URL, json={"username": "alice", "password": "strongpass1"})
+def test_login_success(client, get_code):
+    _register_and_verify(client, get_code)
+    res = client.post(LOGIN_URL, json={"username": TEST_USER["username"], "password": TEST_USER["password"]})
     assert res.status_code == 200
     data = res.json()
     assert "access_token" in data
     assert data["token_type"] == "bearer"
 
 
-def test_login_wrong_password(client):
-    _register_and_verify(client)
-    res = client.post(LOGIN_URL, json={"username": "alice", "password": "wrongpass"})
+def test_login_wrong_password(client, get_code):
+    _register_and_verify(client, get_code)
+    res = client.post(LOGIN_URL, json={"username": TEST_USER["username"], "password": "wrongpass"})
     assert res.status_code == 401
 
 
@@ -150,8 +140,8 @@ def test_login_unknown_user(client):
 
 # ── /auth/refresh tests ───────────────────────────────────────────────────────
 
-def test_refresh_returns_valid_token(client):
-    token = _register_and_verify(client)["access_token"]
+def test_refresh_returns_valid_token(client, get_code):
+    token = _register_and_verify(client, get_code)["access_token"]
     res = client.post(REFRESH_URL, headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     data = res.json()
