@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.dependencies import get_current_user
 from backend.email import send_verification_email
 from backend.models.email_verification import EmailVerification
 from backend.models.user import User
@@ -91,6 +92,12 @@ def verify(payload: VerifyCode, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_access_token({"sub": str(user.id), "username": user.username})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/refresh", response_model=Token)
+def refresh(current_user: User = Depends(get_current_user)):
+    token = create_access_token({"sub": str(current_user.id), "username": current_user.username})
     return {"access_token": token, "token_type": "bearer"}
 
 

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
 import PropertyForm, { FormData, EMPTY_FORM } from "@/components/PropertyForm";
 
 function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
@@ -45,7 +44,7 @@ function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
 }
 
 export default function EditPropertyPage() {
-  const { token } = useAuth();
+  const { token, fetchWithAuth } = useAuth();
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [initialValues, setInitialValues] = useState<Partial<FormData>>(EMPTY_FORM);
@@ -54,7 +53,7 @@ export default function EditPropertyPage() {
 
   useEffect(() => {
     if (!token || !id) return;
-    apiFetch(`/properties/${id}`, {}, token)
+    fetchWithAuth(`/properties/${id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.detail) { setFetchError(data.detail); return; }
@@ -66,7 +65,7 @@ export default function EditPropertyPage() {
 
   async function handleSubmit(payload: object) {
     if (!token) { router.push("/login"); return; }
-    const res = await apiFetch(`/properties/${id}`, { method: "PUT", body: JSON.stringify(payload) }, token);
+    const res = await fetchWithAuth(`/properties/${id}`, { method: "PUT", body: JSON.stringify(payload) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail ?? "Failed to update property");
     router.push("/dashboard");

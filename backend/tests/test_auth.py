@@ -7,6 +7,7 @@ from backend.models.email_verification import EmailVerification
 REGISTER_URL = "/auth/register"
 VERIFY_URL = "/auth/verify"
 LOGIN_URL = "/auth/login"
+REFRESH_URL = "/auth/refresh"
 
 VALID_USER = {"username": "alice", "email": "alice@example.com", "password": "strongpass1"}
 
@@ -145,3 +146,27 @@ def test_login_wrong_password(client):
 def test_login_unknown_user(client):
     res = client.post(LOGIN_URL, json={"username": "nobody", "password": "pass"})
     assert res.status_code == 401
+
+
+# ── /auth/refresh tests ───────────────────────────────────────────────────────
+
+def test_refresh_returns_valid_token(client):
+    token = _register_and_verify(client)["access_token"]
+    res = client.post(REFRESH_URL, headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    # New token must be usable on a protected endpoint
+    props = client.get("/properties", headers={"Authorization": f"Bearer {data['access_token']}"})
+    assert props.status_code == 200
+
+
+def test_refresh_with_invalid_token_rejected(client):
+    res = client.post(REFRESH_URL, headers={"Authorization": "Bearer not.a.real.token"})
+    assert res.status_code == 401
+
+
+def test_refresh_without_token_rejected(client):
+    res = client.post(REFRESH_URL)
+    assert res.status_code in (401, 403)

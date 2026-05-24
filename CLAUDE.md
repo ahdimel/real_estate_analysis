@@ -317,19 +317,8 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ## Pending / Next Steps
 
-The following production-hardening improvements were identified and scoped but not yet implemented.
-A future agent can pick up any of these — the context here is enough to start.
-
-### 4. Input validation on `PropertyCreate`
-The Pydantic schema accepts any numeric value. A negative purchase price, a 150% down payment,
-or a 0-year mortgage term reach the analysis engine and produce garbage output (NaN/inf or
-divide-by-zero). Add field-level validators to `backend/schemas/property.py`:
-- `purchase_price > 0`
-- `down_payment` in range 0–100
-- `mortgage_term` in `{10, 15, 20, 30}`
-- `rent_lower <= rent_upper`
-- `annual_interest_rate > 0`
-- `vacancy_days_annual` in 0–365
+The following production-hardening improvement was identified and scoped but not yet implemented.
+A future agent can pick up this item — the context here is enough to start.
 
 ### 5. Rate limiting on expensive endpoints
 Two endpoints have no per-user throttle:
@@ -338,21 +327,6 @@ Two endpoints have no per-user throttle:
 
 Add `slowapi` (starlette-native, ~10-line integration) with a per-IP or per-user limit.
 Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
-
-### 6. Structured logging / error surfacing
-Several `except Exception: return FALLBACK` blocks silently swallow errors with no visibility:
-- `backend/analysis/market.py` — Yahoo Finance failures
-- `backend/analysis/mortgage_rate.py` — Freddie Mac CSV fetch failures
-- `backend/routes/auth.py` — Resend email send failures
-
-Replace bare `except Exception:` with `logging.exception(...)` before returning the fallback,
-so Railway logs capture frequency and stack traces without changing user-facing behaviour.
-
-### 7. Token refresh endpoint
-JWT expiry is 30 minutes with no refresh path. Users filling in a long property form get a
-silent 401 that looks like a broken app. Add `POST /auth/refresh` that accepts a valid
-(non-expired) token and returns a new one. Frontend should call this on 401 responses before
-showing the login page.
 
 ---
 
@@ -365,6 +339,9 @@ showing the login page.
 - **Two `railway.toml` files**: root `railway.toml` is for the backend; `frontend/railway.toml` is for the frontend. Do not merge or move them.
 - **10-property cap**: `PROPERTY_LIMIT = 10` in `backend/routes/properties.py`, enforced at create time with a 400 error.
 - **Market CAGR never auto-refreshes**: once stored, it stays forever. Use `POST /market/refresh` to force a Yahoo Finance refetch.
+- **JWT refresh**: `POST /auth/refresh` issues a new 30-min token for any valid non-expired token. Frontend pages use `fetchWithAuth` (from `AuthContext`) instead of `apiFetch` directly — it automatically retries on 401 after a refresh attempt, then calls `logout()` if the refresh also fails.
+- **`mortgage_term` is an enum, not a free integer**: valid values are `{10, 15, 20, 30}`. The backend rejects any other value with 422. The form renders a dropdown, not a free-text field.
+- **`annual_interest_rate` must be > 0**: `ge=0.01` on the Pydantic schema. A 0% rate would produce divide-by-zero in mortgage calculations.
 - **Adding a new NOT NULL column without a default**: add it as nullable first, backfill values, then tighten to NOT NULL in a second migration. Doing it in one step will fail on any table that already has rows.
 - **`railway run` does not inject `DATABASE_URL` locally**: the PostgreSQL addon URL is only reachable inside Railway's network. To run Alembic or psycopg2 against production from your laptop, get `DATABASE_PUBLIC_URL` from `railway variables --service Postgres` and pass it as `DATABASE_URL=<value> alembic ...`.
 - **Required env vars at startup**: `SECRET_KEY` and `RESEND_API_KEY` must be set. The app raises `RuntimeError` on startup if either is missing — this is intentional. Set them in `.env` locally and in Railway environment variables for production.

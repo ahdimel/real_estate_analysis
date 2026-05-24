@@ -1,5 +1,8 @@
+import logging
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 RATE_KEY = "mortgage_rate_30yr"
 FETCHED_AT_KEY = "mortgage_rate_fetched_at"
@@ -44,6 +47,7 @@ def _fetch_from_freddie_mac() -> float:
             raise ValueError(f"Rate out of plausible range: {rate}")
         return rate
     except Exception:
+        logger.exception("Freddie Mac rate fetch failed; using fallback rate")
         return FALLBACK_RATE
 
 

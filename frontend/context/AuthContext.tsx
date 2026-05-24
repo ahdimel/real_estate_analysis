@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 interface AuthContextType {
   token: string | null;
   username: string | null;
   login: (token: string) => void;
   logout: () => void;
+  fetchWithAuth: (path: string, options?: RequestInit) => Promise<Response>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,8 +49,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   }
 
+  async function fetchWithAuth(path: string, options: RequestInit = {}): Promise<Response> {
+    const storedToken = localStorage.getItem("rei_token");
+    const res = await apiFetch(path, options, storedToken ?? undefined);
+    if (res.status !== 401) return res;
+
+    const refreshRes = await apiFetch("/auth/refresh", { method: "POST" }, storedToken ?? undefined);
+    if (!refreshRes.ok) {
+      logout();
+      return res;
+    }
+
+    const { access_token: newToken } = (await refreshRes.json()) as { access_token: string };
+    localStorage.setItem("rei_token", newToken);
+    setToken(newToken);
+    setUsername(parseUsername(newToken));
+    return apiFetch(path, options, newToken);
+  }
+
   return (
-    <AuthContext.Provider value={{ token, username, login, logout }}>
+    <AuthContext.Provider value={{ token, username, login, logout, fetchWithAuth }}>
       {children}
     </AuthContext.Provider>
   );

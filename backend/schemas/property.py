@@ -20,8 +20,8 @@ class PropertyCreate(BaseModel):
 
     # Acquisition
     purchase_price: Decimal = Field(ge=Decimal("0.01"), le=Decimal("9999999.99"))
-    annual_interest_rate: Decimal = Field(ge=Decimal("0.00"), le=Decimal("25.00"))
-    mortgage_term: int = Field(ge=1, le=45)
+    annual_interest_rate: Decimal = Field(ge=Decimal("0.01"), le=Decimal("25.00"))
+    mortgage_term: Literal[10, 15, 20, 30]
     down_payment: Decimal = Field(ge=Decimal("0.00"), le=Decimal("100.00"))
     closing_costs: Decimal = Field(ge=Decimal("0.00"), le=Decimal("9999999.99"))
     initial_repairs: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"), le=Decimal("999999.99"))

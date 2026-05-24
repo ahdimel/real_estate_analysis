@@ -1,5 +1,8 @@
+import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 MARKET_CAGR_KEY  = "market_cagr"
 MARKET_LABEL_KEY = "market_label"
@@ -60,6 +63,7 @@ def _fetch_from_yahoo() -> tuple[float, str]:
         return cagr, label
 
     except Exception:
+        logger.exception("Yahoo Finance fetch failed for %s; using fallback CAGR", TICKER)
         return FALLBACK_CAGR, FALLBACK_LABEL
 
 

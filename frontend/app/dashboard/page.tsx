@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
 
 const PROPERTY_LIMIT = 10;
 
@@ -31,7 +30,7 @@ function formatCurrency(n: number) {
 }
 
 export default function DashboardPage() {
-  const { token, username, logout } = useAuth();
+  const { token, username, logout, fetchWithAuth } = useAuth();
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loadingProps, setLoadingProps] = useState(true);
@@ -46,7 +45,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch("/properties", {}, token)
+    fetchWithAuth("/properties")
       .then((r) => r.json())
       .then((data) => setProperties(Array.isArray(data) ? data : []))
       .catch(() => setProperties([]))
@@ -55,7 +54,7 @@ export default function DashboardPage() {
 
   async function handleDelete(id: number) {
     if (!token) return;
-    await apiFetch(`/properties/${id}`, { method: "DELETE" }, token);
+    await fetchWithAuth(`/properties/${id}`, { method: "DELETE" });
     setProperties((prev) => prev.filter((p) => p.id !== id));
     setConfirmDeleteId(null);
   }

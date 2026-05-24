@@ -7,7 +7,6 @@ import {
   CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,7 +117,7 @@ function exportCSV(rows: YearRow[], scenario: Scenario, address: string) {
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function AnalysisPage() {
-  const { token } = useAuth();
+  const { token, fetchWithAuth } = useAuth();
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<AnalysisData | null>(null);
@@ -130,11 +129,11 @@ export default function AnalysisPage() {
   useEffect(() => {
     if (!token || !id) return;
     // fetch property address for display + export naming
-    apiFetch(`/properties/${id}`, {}, token)
+    fetchWithAuth(`/properties/${id}`)
       .then((r) => r.json())
       .then((p) => setAddress(`${p.address_street}, ${p.address_city}`));
 
-    apiFetch(`/properties/${id}/analysis`, {}, token)
+    fetchWithAuth(`/properties/${id}/analysis`)
       .then((r) => r.json())
       .then((d) => {
         if (d.detail) { setError(d.detail); return; }

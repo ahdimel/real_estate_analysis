@@ -135,6 +135,22 @@ def test_mortgage_term_zero_rejected(client, auth_token, valid_property):
     assert res.status_code == 422
 
 
+def test_non_standard_mortgage_term_rejected(client, auth_token, valid_property):
+    res = client.post(PROPS_URL, json={**valid_property, "mortgage_term": 7}, headers=auth_headers(auth_token))
+    assert res.status_code == 422
+
+
+def test_standard_mortgage_terms_accepted(client, auth_token, valid_property):
+    for term in (10, 15, 20, 30):
+        res = client.post(PROPS_URL, json={**valid_property, "mortgage_term": term, "address_street": f"{term}yr St"}, headers=auth_headers(auth_token))
+        assert res.status_code == 201, f"mortgage_term={term} should be accepted"
+
+
+def test_zero_interest_rate_rejected(client, auth_token, valid_property):
+    res = client.post(PROPS_URL, json={**valid_property, "annual_interest_rate": 0.0}, headers=auth_headers(auth_token))
+    assert res.status_code == 422
+
+
 def test_invalid_property_type_rejected(client, auth_token, valid_property):
     res = client.post(PROPS_URL, json={**valid_property, "property_type": "castle"}, headers=auth_headers(auth_token))
     assert res.status_code == 422

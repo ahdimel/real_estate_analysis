@@ -307,12 +307,16 @@ export default function PropertyForm({
 
         <Field label="Purchase price" name="purchase_price" type="number" min="0.01" max="9999999.99" step="0.01" prefix="$"
           value={form.purchase_price} onChange={handleChange} />
-        <Field label="Annual interest rate" name="annual_interest_rate" type="number" min="0" max="25" step="0.01" suffix="%"
+        <Field label="Annual interest rate" name="annual_interest_rate" type="number" min="0.01" max="25" step="0.01" suffix="%"
           tooltip="Fixed annual rate on your mortgage loan."
           hint={rateHint}
           value={form.annual_interest_rate} onChange={handleChange} />
-        <Field label="Mortgage term" name="mortgage_term" type="number" min="1" max="45" suffix="years"
-          value={form.mortgage_term} onChange={handleChange} />
+        <Field label="Mortgage term" name="mortgage_term" value={form.mortgage_term} onChange={handleChange}>
+          <option value="10">10 years</option>
+          <option value="15">15 years</option>
+          <option value="20">20 years</option>
+          <option value="30">30 years</option>
+        </Field>
         <Field label="Down payment" name="down_payment" type="number" min="0" max="100" step="0.01" suffix="%"
           tooltip="Percentage of the purchase price paid upfront. Enter 100 for a cash purchase."
           value={form.down_payment} onChange={handleChange} />

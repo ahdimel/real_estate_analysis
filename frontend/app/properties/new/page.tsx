@@ -2,16 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
 import PropertyForm from "@/components/PropertyForm";
 
 export default function NewPropertyPage() {
-  const { token } = useAuth();
+  const { token, fetchWithAuth } = useAuth();
   const router = useRouter();
 
   async function handleSubmit(payload: object) {
     if (!token) { router.push("/login"); return; }
-    const res = await apiFetch("/properties", { method: "POST", body: JSON.stringify(payload) }, token);
+    const res = await fetchWithAuth("/properties", { method: "POST", body: JSON.stringify(payload) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail ?? "Failed to save property");
     router.push("/dashboard");
