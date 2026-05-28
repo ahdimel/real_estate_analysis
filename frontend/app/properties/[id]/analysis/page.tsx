@@ -148,7 +148,28 @@ function exportCSV(rows: YearRow[], scenario: Scenario, address: string) {
 
 // ── Chart capture (returns base64 data URL) ──────────────────────────────────
 
-function captureChartToDataUrl(chartEl: HTMLDivElement): Promise<string> {
+// Maps dark-theme SVG colors to their print-friendly equivalents.
+const PRINT_COLOR_MAP: Record<string, string> = {
+  "#18181b": "#ffffff",
+  "#27272a": "#ffffff",
+  "#3f3f46": "#d4d4d8",  // grid lines → light grey
+  "#232326": "#f9fafb",
+  "#a1a1aa": "#52525b",  // axis tick labels → readable grey
+  "#71717a": "#52525b",
+};
+
+function remapSvgForPrint(el: Element): void {
+  for (const attr of ["fill", "stroke"] as const) {
+    const val = el.getAttribute(attr);
+    if (val) {
+      const mapped = PRINT_COLOR_MAP[val.toLowerCase()];
+      if (mapped) el.setAttribute(attr, mapped);
+    }
+  }
+  for (const child of Array.from(el.children)) remapSvgForPrint(child);
+}
+
+function captureChartToDataUrl(chartEl: HTMLDivElement, forPrint = false): Promise<string> {
   return new Promise((resolve, reject) => {
     const allSvgs = Array.from(chartEl.querySelectorAll("svg"));
     const mainSvg = allSvgs.reduce<SVGSVGElement | null>((best, svg) => {
@@ -164,6 +185,8 @@ function captureChartToDataUrl(chartEl: HTMLDivElement): Promise<string> {
     clone.setAttribute("width", String(width));
     clone.setAttribute("height", String(height));
 
+    if (forPrint) remapSvgForPrint(clone);
+
     const url = URL.createObjectURL(
       new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" })
     );
@@ -174,7 +197,7 @@ function captureChartToDataUrl(chartEl: HTMLDivElement): Promise<string> {
       canvas.width = width * scale;
       canvas.height = height * scale;
       const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#27272a";
+      ctx.fillStyle = forPrint ? "#ffffff" : "#27272a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0);
@@ -246,7 +269,7 @@ export default function AnalysisPage() {
 
   async function triggerPDFDownload(snapshot: ReportSnapshot, reportId: string, generatedAt: string) {
     const chartUrl = chartRef.current
-      ? await captureChartToDataUrl(chartRef.current)
+      ? await captureChartToDataUrl(chartRef.current, true)
       : "";
 
     const [{ pdf }, { ReportDocument }, React] = await Promise.all([

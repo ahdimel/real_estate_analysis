@@ -33,14 +33,27 @@ interface PropertySnapshot {
   appreciation_rate_pct: number;
   property_tax_increase_pct: number;
   insurance_increase_pct: number;
+  market_cagr_pct: number;
 }
 
 interface YearRow {
   year: number;
+  gross_rent: number;
+  effective_rent: number;
+  mortgage_payment: number;
+  property_tax: number;
+  hoa: number;
+  management: number;
+  maintenance: number;
+  insurance: number;
+  pmi: number;
+  total_expenses: number;
   net_cash_flow: number;
   cumulative_cash_flow: number;
   property_value: number;
+  loan_balance: number;
   equity: number;
+  equity_gain: number;
   re_value: number;
   cumulative_roi_pct: number;
   stock_value: number;
@@ -57,6 +70,7 @@ interface AnalysisSnapshot {
   initial_investment: number;
   loan_amount: number;
   monthly_mortgage: number;
+  market_cagr_pct: number;
   market_label: string;
   summary_low: ScenarioSummary;
   summary_mid: ScenarioSummary;
@@ -94,16 +108,16 @@ const TYPE_LABELS: Record<string, string> = {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const C = {
-  bg: "#18181b",
-  surface: "#27272a",
-  border: "#3f3f46",
-  text: "#f4f4f5",
-  muted: "#a1a1aa",
-  green: "#10b981",
-  red: "#f87171",
-  blue: "#3b82f6",
-  purple: "#8b5cf6",
-  amber: "#f59e0b",
+  bg: "#ffffff",
+  surface: "#f4f4f5",
+  border: "#d4d4d8",
+  text: "#18181b",
+  muted: "#52525b",
+  green: "#059669",
+  red: "#dc2626",
+  blue: "#2563eb",
+  purple: "#7c3aed",
+  amber: "#b45309",
   white: "#ffffff",
 };
 
@@ -112,7 +126,7 @@ const s = StyleSheet.create({
   pageLand: { backgroundColor: C.bg, padding: 28, fontFamily: "Helvetica", fontSize: 8, color: C.text, flexDirection: "column" },
 
   // Header
-  header: { backgroundColor: C.surface, borderRadius: 6, padding: 12, marginBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  header: { backgroundColor: C.surface, borderRadius: 6, borderWidth: 0.5, borderColor: C.border, padding: 12, marginBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: C.text },
   headerSub: { fontSize: 8, color: C.muted, marginTop: 2 },
   headerRight: { alignItems: "flex-end" },
@@ -138,28 +152,28 @@ const s = StyleSheet.create({
 
   // Metric card (3-up)
   row3: { flexDirection: "row", gap: 8, marginBottom: 4 },
-  metricCard: { flex: 1, backgroundColor: C.surface, borderRadius: 5, padding: 8 },
+  metricCard: { flex: 1, backgroundColor: C.surface, borderRadius: 5, borderWidth: 0.5, borderColor: C.border, padding: 8 },
   metricLabel: { fontSize: 7, color: C.muted, marginBottom: 3 },
   metricValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: C.text },
 
   // Scenario table
-  table: { backgroundColor: C.surface, borderRadius: 5, overflow: "hidden" },
-  tableHead: { backgroundColor: "#3f3f46", flexDirection: "row", paddingVertical: 4, paddingHorizontal: 6 },
+  table: { backgroundColor: C.bg, borderRadius: 5, overflow: "hidden", borderWidth: 0.5, borderColor: C.border },
+  tableHead: { backgroundColor: C.surface, flexDirection: "row", paddingVertical: 4, paddingHorizontal: 6 },
   tableRow: { flexDirection: "row", paddingVertical: 3, paddingHorizontal: 6, borderBottomColor: C.border, borderBottomWidth: 0.5 },
-  tableRowAlt: { flexDirection: "row", paddingVertical: 3, paddingHorizontal: 6, borderBottomColor: C.border, borderBottomWidth: 0.5, backgroundColor: "#232326" },
+  tableRowAlt: { flexDirection: "row", paddingVertical: 3, paddingHorizontal: 6, borderBottomColor: C.border, borderBottomWidth: 0.5, backgroundColor: "#f9fafb" },
   thLabel: { flex: 2, fontSize: 7, fontFamily: "Helvetica-Bold", color: C.muted, textTransform: "uppercase" },
   thScenario: { flex: 1, fontSize: 7, fontFamily: "Helvetica-Bold", color: C.muted, textAlign: "right" },
   tdLabel: { flex: 2, fontSize: 8, color: C.text },
   tdVal: { flex: 1, fontSize: 8, textAlign: "right", fontFamily: "Helvetica-Bold" },
 
-  // Projection table
-  projHead: { backgroundColor: "#3f3f46", flexDirection: "row", paddingVertical: 3, paddingHorizontal: 4 },
-  projRow: { flexDirection: "row", paddingVertical: 2, paddingHorizontal: 4, borderBottomColor: C.border, borderBottomWidth: 0.3 },
-  projRowAlt: { flexDirection: "row", paddingVertical: 2, paddingHorizontal: 4, borderBottomColor: C.border, borderBottomWidth: 0.3, backgroundColor: "#232326" },
-  projTh: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.muted, textAlign: "right", flex: 1 },
-  projThYr: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.muted, flex: 0.5 },
-  projTd: { fontSize: 7, textAlign: "right", flex: 1, color: C.text },
-  projTdYr: { fontSize: 7, flex: 0.5, color: C.muted, fontFamily: "Helvetica-Bold" },
+  // Projection table (compact 20-column layout)
+  projHead: { backgroundColor: C.surface, flexDirection: "row", paddingVertical: 3, paddingHorizontal: 3 },
+  projRow: { flexDirection: "row", paddingVertical: 1.5, paddingHorizontal: 3, borderBottomColor: C.border, borderBottomWidth: 0.3 },
+  projRowAlt: { flexDirection: "row", paddingVertical: 1.5, paddingHorizontal: 3, borderBottomColor: C.border, borderBottomWidth: 0.3, backgroundColor: "#f9fafb" },
+  projTh: { fontSize: 6, fontFamily: "Helvetica-Bold", color: C.muted, textAlign: "right" },
+  projThYr: { fontSize: 6, fontFamily: "Helvetica-Bold", color: C.muted },
+  projTd: { fontSize: 6, textAlign: "right", color: C.text },
+  projTdYr: { fontSize: 6, color: C.muted, fontFamily: "Helvetica-Bold" },
 
   // Chart page
   chartTitle: { fontSize: 10, fontFamily: "Helvetica-Bold", color: C.text, marginBottom: 8 },
@@ -213,31 +227,60 @@ function ScenarioTable({ analysis }: { analysis: AnalysisSnapshot }) {
   );
 }
 
-function ProjectionTable({ rows, scenarioLabel, marketLabel }: { rows: YearRow[]; scenarioLabel: string; marketLabel: string }) {
+type ColDef = {
+  header: string;
+  flex: number;
+  render: (r: YearRow) => string;
+  color?: (r: YearRow) => string;
+  left?: boolean;
+};
+
+function projCols(marketCagrPct: number): ColDef[] {
+  return [
+    { header: "Yr",         flex: 0.32, render: r => String(r.year),               color: _ => C.muted, left: true },
+    { header: "Gross Rent", flex: 0.72, render: r => usd(r.gross_rent) },
+    { header: "Eff. Rent",  flex: 0.72, render: r => usd(r.effective_rent) },
+    { header: "Mortg.",     flex: 0.72, render: r => usd(r.mortgage_payment) },
+    { header: "Taxes",      flex: 0.63, render: r => usd(r.property_tax) },
+    { header: "HOA",        flex: 0.54, render: r => usd(r.hoa) },
+    { header: "Mgmt",       flex: 0.54, render: r => usd(r.management) },
+    { header: "Maint.",     flex: 0.63, render: r => usd(r.maintenance) },
+    { header: "Insur.",     flex: 0.63, render: r => usd(r.insurance) },
+    { header: "PMI",        flex: 0.54, render: r => usd(r.pmi) },
+    { header: "Tot. Exp.",  flex: 0.72, render: r => usd(r.total_expenses) },
+    { header: "Net CF",     flex: 0.72, render: r => usd(r.net_cash_flow),          color: r => r.net_cash_flow < 0 ? C.red : C.green },
+    { header: "Cum. CF",    flex: 0.72, render: r => usd(r.cumulative_cash_flow),   color: r => r.cumulative_cash_flow < 0 ? C.red : C.green },
+    { header: "Prop. Val",  flex: 0.76, render: r => usd(r.property_value) },
+    { header: "Loan Bal.",  flex: 0.72, render: r => usd(r.loan_balance) },
+    { header: "Equity",     flex: 0.67, render: r => usd(r.equity) },
+    { header: "Eq. Gain",   flex: 0.72, render: r => usd(r.equity_gain),            color: _ => C.green },
+    { header: "RE Value",   flex: 0.72, render: r => usd(r.re_value),               color: _ => C.green },
+    { header: "ROI %",      flex: 0.58, render: r => pct(r.cumulative_roi_pct),     color: r => r.cumulative_roi_pct < 0 ? C.red : C.amber },
+    { header: `Alt. Inv.\n(${marketCagrPct}%)`, flex: 0.72, render: r => usd(r.stock_value), color: _ => C.purple },
+  ];
+}
+
+function ProjectionTable({ rows, scenarioLabel, marketCagrPct }: { rows: YearRow[]; scenarioLabel: string; marketCagrPct: number }) {
+  const cols = projCols(marketCagrPct);
   return (
     <View>
       <Text style={s.scenarioLabel}>{scenarioLabel}</Text>
       <View style={[s.table, { marginBottom: 8 }]}>
         <View style={s.projHead}>
-          <Text style={s.projThYr}>Yr</Text>
-          <Text style={s.projTh}>Net CF</Text>
-          <Text style={s.projTh}>Cum. CF</Text>
-          <Text style={s.projTh}>Prop. Value</Text>
-          <Text style={s.projTh}>Equity</Text>
-          <Text style={s.projTh}>RE Value</Text>
-          <Text style={s.projTh}>ROI %</Text>
-          <Text style={s.projTh}>{marketLabel}</Text>
+          {cols.map(col => (
+            <Text key={col.header} style={[col.left ? s.projThYr : s.projTh, { flex: col.flex }]}>{col.header}</Text>
+          ))}
         </View>
         {rows.map((r, i) => (
           <View key={r.year} style={i % 2 === 0 ? s.projRow : s.projRowAlt}>
-            <Text style={s.projTdYr}>{r.year}</Text>
-            <Text style={[s.projTd, { color: r.net_cash_flow < 0 ? C.red : C.green }]}>{usd(r.net_cash_flow)}</Text>
-            <Text style={[s.projTd, { color: r.cumulative_cash_flow < 0 ? C.red : C.green }]}>{usd(r.cumulative_cash_flow)}</Text>
-            <Text style={s.projTd}>{usd(r.property_value)}</Text>
-            <Text style={s.projTd}>{usd(r.equity)}</Text>
-            <Text style={[s.projTd, { color: C.green }]}>{usd(r.re_value)}</Text>
-            <Text style={[s.projTd, { color: r.cumulative_roi_pct < 0 ? C.red : C.amber }]}>{pct(r.cumulative_roi_pct)}</Text>
-            <Text style={[s.projTd, { color: C.purple }]}>{usd(r.stock_value)}</Text>
+            {cols.map(col => (
+              <Text
+                key={col.header}
+                style={[col.left ? s.projTdYr : s.projTd, { flex: col.flex }, col.color ? { color: col.color(r) } : {}]}
+              >
+                {col.render(r)}
+              </Text>
+            ))}
           </View>
         ))}
       </View>
@@ -323,6 +366,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
           <View style={s.col}>
             <InputRow label="Maintenance Increase" value={`${p.maintenance_increase_pct}% / yr`} />
             <InputRow label="Insurance Increase" value={`${p.insurance_increase_pct}% / yr`} />
+            <InputRow label="Alt. Investment CAGR" value={`${p.market_cagr_pct}% / yr`} />
           </View>
         </View>
 
@@ -356,7 +400,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
         </View>
         <Image src={chartImageUrl} style={s.chartImg} />
         <Text style={s.chartNote}>
-          Chart reflects the scenario active at time of download. Green = RE Value, Amber = Cumulative ROI %, Purple = {a.market_label}.
+          Chart reflects the scenario active at time of download. Green = RE Value, Amber = Cumulative ROI %, Purple = Alt. Investment ({a.market_cagr_pct}% CAGR).
         </Text>
         <Footer reportId={reportId} page={2} total={TOTAL_PAGES} />
       </Page>
@@ -364,30 +408,30 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
       {/* ── Page 3: Low scenario table ─────────────────────────────────── */}
       <Page size="A4" orientation="landscape" style={s.pageLand}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>30-Year Projection — All Scenarios</Text>
+          <Text style={s.headerTitle}>30-Year Projection — Low Rent Scenario</Text>
           <Text style={s.headerId}>{reportId}</Text>
         </View>
-        <ProjectionTable rows={a.projections_low} scenarioLabel="Low Rent Scenario" marketLabel={a.market_label} />
+        <ProjectionTable rows={a.projections_low} scenarioLabel="Low Rent Scenario" marketCagrPct={a.market_cagr_pct} />
         <Footer reportId={reportId} page={3} total={TOTAL_PAGES} />
       </Page>
 
-      {/* ── Page 4: Mid scenario table ─────────────────────────────────── */}
+      {/* ── Page 4: Medium scenario table ──────────────────────────────── */}
       <Page size="A4" orientation="landscape" style={s.pageLand}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>30-Year Projection — Mid Scenario</Text>
+          <Text style={s.headerTitle}>30-Year Projection — Medium Rent Scenario</Text>
           <Text style={s.headerId}>{reportId}</Text>
         </View>
-        <ProjectionTable rows={a.projections_mid} scenarioLabel="Mid Rent Scenario" marketLabel={a.market_label} />
+        <ProjectionTable rows={a.projections_mid} scenarioLabel="Medium Rent Scenario" marketCagrPct={a.market_cagr_pct} />
         <Footer reportId={reportId} page={4} total={TOTAL_PAGES} />
       </Page>
 
       {/* ── Page 5: High scenario table ────────────────────────────────── */}
       <Page size="A4" orientation="landscape" style={s.pageLand}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>30-Year Projection — High Scenario</Text>
+          <Text style={s.headerTitle}>30-Year Projection — High Rent Scenario</Text>
           <Text style={s.headerId}>{reportId}</Text>
         </View>
-        <ProjectionTable rows={a.projections_high} scenarioLabel="High Rent Scenario" marketLabel={a.market_label} />
+        <ProjectionTable rows={a.projections_high} scenarioLabel="High Rent Scenario" marketCagrPct={a.market_cagr_pct} />
         <Footer reportId={reportId} page={5} total={TOTAL_PAGES} />
       </Page>
 

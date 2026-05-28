@@ -288,7 +288,9 @@ def test_two_users(client, auth_token, get_code):
 
 The JPG export in `frontend/app/properties/[id]/analysis/page.tsx` extracts the Recharts SVG directly — it does **not** use html2canvas. html2canvas was tried and failed because Tailwind CSS v4 uses `oklch()` colors, which html2canvas cannot render.
 
-Implementation: finds the largest SVG by pixel area inside `chartRef`, clones it with explicit `width`/`height` attributes, serializes to a Blob URL, draws onto a 2× canvas for retina quality, then triggers a download.
+`captureChartToDataUrl(chartEl, forPrint?)` — finds the largest SVG by pixel area inside `chartRef`, clones it with explicit `width`/`height` attributes, serializes to a Blob URL, draws onto a 2× canvas for retina quality, then triggers a download.
+
+**`forPrint` flag** — when `true` (used by PDF generation), `remapSvgForPrint()` walks the cloned SVG and replaces dark zinc/muted hex values with their light equivalents (`PRINT_COLOR_MAP`) before serializing, and fills the canvas white. This produces a chart image suited for a white-background PDF. When `false` (used by "Export JPG"), the canvas fills `#27272a` and colors are left unchanged, preserving the dark-themed appearance.
 
 ---
 
@@ -338,13 +340,15 @@ All endpoints are user-scoped — a user can only access their own data.
 PDF is assembled entirely in the browser — nothing is stored on the server. `@react-pdf/renderer` v4 is dynamically imported (`import("@react-pdf/renderer")`) to avoid Next.js SSR errors. The `pdf(doc).toBlob()` result is downloaded via a temporary object URL.
 
 **PDF structure (5 pages):**
-- Page 1 (portrait): report header, all property inputs, key metrics (initial investment, loan, mortgage), scenario comparison table
-- Page 2 (landscape): 30-year projection chart captured as JPEG from the DOM via SVG→canvas pipeline
-- Pages 3–5 (landscape): 30-year projection tables for Low / Mid / High scenarios (8 key columns: Yr, Net CF, Cum. CF, Prop. Value, Equity, RE Value, ROI %, S&P 500)
+- Page 1 (portrait): report header, all property inputs (including Alt. Investment CAGR), key metrics (initial investment, loan, mortgage), scenario comparison table
+- Page 2 (landscape): 30-year projection chart captured as JPEG via SVG→canvas with print color remapping (white background)
+- Pages 3–5 (landscape): full 20-column 30-year projection tables for Low Rent / Medium Rent / High Rent scenarios
 
-Full 20-column data is available via the existing CSV export.
+**PDF color scheme:** printer-friendly white background throughout. `C` palette in `ReportPDF.tsx` uses white/light-grey surfaces and near-black text. Semantic colors (green/red/amber/purple) are darkened slightly from the screen palette for readability on white paper.
 
-**Chart capture:** same SVG→canvas approach as the existing JPG export but uses `#27272a` canvas background (zinc-800, matching the chart container) instead of white. Re-downloads from the dashboard pass `chartImageUrl: ""` — the chart slot renders empty; chart is only captured on the analysis page where it is rendered.
+**Chart capture for PDF:** calls `captureChartToDataUrl(chartRef.current, true)` — the `forPrint=true` flag remaps dark SVG colors to light equivalents via `PRINT_COLOR_MAP` before drawing to canvas. Re-downloads from the dashboard pass `chartImageUrl: ""` — the chart slot renders empty; chart is only captured on the analysis page where it is rendered.
+
+**Projection table columns (20):** Yr, Gross Rent, Eff. Rent, Mortg., Taxes, HOA, Mgmt, Maint., Insur., PMI, Tot. Exp., Net CF, Cum. CF, Prop. Val, Loan Bal., Equity, Eq. Gain, RE Value, ROI %, Alt. Inv. (X%). Column flex weights are tuned for landscape A4 at 6pt font — do not change them without testing the PDF render.
 
 **Re-download:** fetches the stored snapshot from `GET /reports/{public_id}`, then regenerates the PDF client-side. The table data always reflects the parameters at run time.
 
@@ -403,11 +407,9 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ## Pending / Next Steps
 
 ### PDF polish (visual / layout)
-The PDF template in `frontend/components/ReportPDF.tsx` is functional but has several areas earmarked for refinement:
+The PDF template in `frontend/components/ReportPDF.tsx` has a few remaining refinement items:
 
 - **Dynamic page numbers**: `TOTAL_PAGES = 5` is currently hardcoded. Replace with `@react-pdf/renderer`'s `<Text render={({ pageNumber, totalPages }) => \`${pageNumber} / ${totalPages}\`} />` API to eliminate the constant.
-- **Table column widths**: the 8-column 30-year projection table uses equal `flex: 1` columns. Some columns (e.g. "Cumulative ROI %") are wider text; consider assigning explicit `flex` weights so numbers don't wrap.
-- **Full 20-column table option**: the PDF currently shows 8 key columns per scenario with a note to use CSV for full data. A future option could toggle between condensed and full-column layouts (two table halves on separate landscape pages).
 - **Chart re-download quality**: when re-downloading from the dashboard (no active chart in DOM), `chartImageUrl` is empty and page 2 renders blank. Options: (a) skip page 2 on dashboard re-downloads and adjust TOTAL_PAGES, or (b) cache the last-captured chart data URL in the report snapshot.
 - **Custom font**: currently uses Helvetica (built-in). Registering Inter or a similar sans-serif via `Font.register()` would improve visual fidelity.
 - **MLS ID / source URL**: include in the property details section if present on the snapshot.
