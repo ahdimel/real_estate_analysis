@@ -40,6 +40,7 @@ function toFormValues(prop: Record<string, unknown>): Partial<FormData> {
     appreciation_rate_pct: str(prop.appreciation_rate_pct),
     property_tax_increase_pct: str(prop.property_tax_increase_pct),
     insurance_increase_pct: str(prop.insurance_increase_pct),
+    market_cagr_pct: str(prop.market_cagr_pct),
   };
 }
 

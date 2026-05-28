@@ -311,7 +311,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.headerTitle}>REIA — Investment Report</Text>
+            <Text style={s.headerTitle}>Real Estate Investment Analysis - Report</Text>
             <Text style={s.headerSub}>{address}</Text>
           </View>
           <View style={s.headerRight}>

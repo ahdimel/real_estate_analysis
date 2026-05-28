@@ -92,9 +92,11 @@ const usd = (n: number) =>
 const pct = (n: number) => `${n.toFixed(2)}%`;
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
+  const utc = iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z";
+  return new Date(utc).toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
     hour: "numeric", minute: "2-digit",
+    timeZoneName: "short",
   });
 }
 
