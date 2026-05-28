@@ -6,6 +6,12 @@ description: Deploy backend and/or frontend to Railway production
 
 ## Before deploying
 
+**Confirm no uncommitted changes (deploy what's committed, not what's on disk):**
+```bash
+git diff --exit-code && git diff --cached --exit-code
+```
+If this fails, commit or stash before deploying.
+
 **Run the test suite from the repo root. All tests must pass.**
 ```bash
 /Users/ahdimel/Documents/vscode/REI/venv/bin/python -m pytest backend/tests/

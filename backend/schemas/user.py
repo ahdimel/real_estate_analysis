@@ -1,10 +1,10 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegister(BaseModel):
     username: str
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8)
 
 
 class VerifyCode(BaseModel):
@@ -37,4 +37,4 @@ class ForgotPassword(BaseModel):
 
 class ResetPassword(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(min_length=8)

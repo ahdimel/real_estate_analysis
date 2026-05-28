@@ -1,4 +1,4 @@
-# REI Analyzer — CLAUDE.md
+# REIA — CLAUDE.md
 
 ## Project Overview
 
@@ -418,8 +418,7 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ### PDF polish (visual / layout)
 The PDF template in `frontend/components/ReportPDF.tsx` has a few remaining refinement items:
 
-- **Dynamic page numbers**: `TOTAL_PAGES = 5` is currently hardcoded. Replace with `@react-pdf/renderer`'s `<Text render={({ pageNumber, totalPages }) => \`${pageNumber} / ${totalPages}\`} />` API to eliminate the constant.
-- **Chart re-download quality**: when re-downloading from the dashboard (no active chart in DOM), `chartImageUrl` is empty and page 2 renders blank. Options: (a) skip page 2 on dashboard re-downloads and adjust TOTAL_PAGES, or (b) cache the last-captured chart data URL in the report snapshot.
+- **Chart re-download quality**: when re-downloading from the dashboard (no active chart in DOM), `chartImageUrl` is empty and page 2 renders blank. Options: (a) skip page 2 on dashboard re-downloads and adjust total page count, or (b) cache the last-captured chart data URL in the report snapshot.
 - **Custom font**: currently uses Helvetica (built-in). Registering Inter or a similar sans-serif via `Font.register()` would improve visual fidelity.
 - **MLS ID / source URL**: include in the property details section if present on the snapshot.
 - **PDF generation loading state**: currently the button text changes to "Generating…". A full-page overlay or progress indicator would be more informative for slow connections.
