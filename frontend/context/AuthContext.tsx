@@ -43,6 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    const storedToken = localStorage.getItem("rei_token");
+    if (storedToken) {
+      apiFetch("/auth/logout", { method: "POST" }, storedToken).catch(() => {});
+    }
     localStorage.removeItem("rei_token");
     setToken(null);
     setUsername(null);

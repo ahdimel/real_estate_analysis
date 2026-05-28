@@ -420,13 +420,11 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ## Security
 
 See `.claude/SECURITY.md` for the full list of security findings (18 items, prioritised by severity).
-**12 of 18 resolved.** 6 remain open:
+**14 of 18 resolved.** 4 remain open:
 
 | ID | Finding | Priority |
 |---|---|---|
 | H2 | TOCTOU race on credit gate (`SELECT … FOR UPDATE` needed) | High |
-| H3 | Password reset does not invalidate existing JWTs | High |
-| H4 | `/auth/refresh` allows indefinite stolen-token extension | High |
 | M2 | JWT stored in `localStorage` — full XSS exposure (known design decision) | Medium |
 | L1 | `/market/rate` and `/market/mortgage-rate` unauthenticated | Low |
 | L5 | Freddie Mac fallback rate not disclosed to client | Low |

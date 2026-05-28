@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from backend.models.email_verification import EmailVerification
+from backend.models.password_reset import PasswordReset
 from backend.tests.conftest import TEST_USER
 
 REGISTER_URL = "/auth/register"
@@ -203,3 +204,80 @@ def test_username_max_length_accepted(client):
     username = "a" * 32
     res = client.post(REGISTER_URL, json={**TEST_USER, "username": username, "email": "long@example.com"})
     assert res.status_code == 202
+
+
+# ── H3 — password reset invalidates existing JWTs ────────────────────────────
+
+def test_password_reset_invalidates_jwt(client, get_code):
+    """Token issued before password reset must be rejected immediately after reset."""
+    token_before = _register_and_verify(client, get_code)["access_token"]
+
+    # Confirm the token works before reset
+    assert client.get("/properties", headers={"Authorization": f"Bearer {token_before}"}).status_code == 200
+
+    with patch("backend.routes.auth.send_password_reset_email"):
+        client.post("/auth/forgot-password", json={"email": TEST_USER["email"]})
+
+    from backend.database import get_db
+    db = next(client.app.dependency_overrides[get_db]())
+    reset = db.query(PasswordReset).filter(PasswordReset.email == TEST_USER["email"]).first()
+    assert reset is not None
+
+    res = client.post("/auth/reset-password", json={"token": reset.token, "new_password": "newpassword123"})
+    assert res.status_code == 200
+
+    # Old token must now be rejected
+    res = client.get("/properties", headers={"Authorization": f"Bearer {token_before}"})
+    assert res.status_code == 401
+
+
+def test_refresh_after_password_reset_rejected(client, get_code):
+    """Refreshing a pre-reset token must fail after password reset."""
+    token_before = _register_and_verify(client, get_code)["access_token"]
+
+    with patch("backend.routes.auth.send_password_reset_email"):
+        client.post("/auth/forgot-password", json={"email": TEST_USER["email"]})
+
+    from backend.database import get_db
+    db = next(client.app.dependency_overrides[get_db]())
+    reset = db.query(PasswordReset).filter(PasswordReset.email == TEST_USER["email"]).first()
+    client.post("/auth/reset-password", json={"token": reset.token, "new_password": "newpassword123"})
+
+    res = client.post(REFRESH_URL, headers={"Authorization": f"Bearer {token_before}"})
+    assert res.status_code == 401
+
+
+# ── H4 — logout invalidates existing JWTs ────────────────────────────────────
+
+def test_logout_invalidates_jwt(client, get_code):
+    """Token must be rejected immediately after the user logs out."""
+    token = _register_and_verify(client, get_code)["access_token"]
+
+    res = client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+
+    res = client.get("/properties", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 401
+
+
+def test_refresh_after_logout_rejected(client, get_code):
+    """Refreshing a token after logout must fail."""
+    token = _register_and_verify(client, get_code)["access_token"]
+
+    client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+
+    res = client.post(REFRESH_URL, headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 401
+
+
+def test_new_login_works_after_logout(client, get_code):
+    """A fresh login after logout must succeed and produce a valid token."""
+    token = _register_and_verify(client, get_code)["access_token"]
+    client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+
+    new_token_res = client.post(LOGIN_URL, json={"username": TEST_USER["username"], "password": TEST_USER["password"]})
+    assert new_token_res.status_code == 200
+    new_token = new_token_res.json()["access_token"]
+
+    res = client.get("/properties", headers={"Authorization": f"Bearer {new_token}"})
+    assert res.status_code == 200

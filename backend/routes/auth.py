@@ -97,7 +97,7 @@ def verify(request: Request, payload: VerifyCode, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"sub": str(user.id), "username": user.username})
+    token = create_access_token({"sub": str(user.id), "username": user.username, "ver": user.token_version})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -156,15 +156,23 @@ def reset_password(request: Request, payload: ResetPassword, db: Session = Depen
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
     user.hashed_password = hash_password(payload.new_password)
+    user.token_version = (user.token_version or 0) + 1
     db.delete(reset)
     db.commit()
 
     return {"detail": "Password updated successfully. You can now log in."}
 
 
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.token_version = (current_user.token_version or 0) + 1
+    db.commit()
+    return {"detail": "Logged out successfully."}
+
+
 @router.post("/refresh", response_model=Token)
 def refresh(current_user: User = Depends(get_current_user)):
-    token = create_access_token({"sub": str(current_user.id), "username": current_user.username})
+    token = create_access_token({"sub": str(current_user.id), "username": current_user.username, "ver": current_user.token_version})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -178,5 +186,5 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Account is not verified")
 
-    token = create_access_token({"sub": str(user.id), "username": user.username})
+    token = create_access_token({"sub": str(user.id), "username": user.username, "ver": user.token_version})
     return {"access_token": token, "token_type": "bearer"}

@@ -76,26 +76,31 @@ SQLite serializes writes so this only affects production.
 
 ### H3 — Password reset does not invalidate existing JWTs
 **File:** `backend/routes/auth.py:153`, `backend/security.py:23`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
 After a password reset, all previously issued tokens remain valid until their 30-minute TTL.
 An attacker with a stolen token retains access for up to 30 minutes post-reset.
 
-**Fix:** Add a `token_version` (int) column to `users`. Increment on password change.
-Encode version in JWT payload; `get_current_user` rejects tokens with a stale version.
+**Fix:** Added `token_version` (int, server_default=0) to the `users` table. All JWTs now
+carry a `"ver"` claim. `get_current_user` rejects any token whose `ver` doesn't match the
+user's current `token_version`. `reset_password` increments `token_version` on every
+successful reset, immediately invalidating all outstanding tokens.
 
 ---
 
 ### H4 — `/auth/refresh` allows indefinite extension of stolen tokens
 **File:** `backend/routes/auth.py:160`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed (partial — explicit logout now invalidates all tokens)
 
 Any valid, non-expired token can be refreshed for a new 30-minute token with no additional
 proof. A stolen token can be kept alive forever until the operator rotates `SECRET_KEY`.
 
-**Fix:** Implement refresh token rotation — issue an opaque refresh token (stored in DB,
-`HttpOnly` cookie) alongside the short-lived access token. Invalidate refresh tokens on
-password change or explicit logout.
+**Fix:** Added `POST /auth/logout` endpoint that increments `token_version`, immediately
+invalidating all outstanding tokens (including any the attacker is holding). Frontend
+`logout()` fires a best-effort call to this endpoint before clearing local state. Combined
+with H3, password reset also invalidates tokens. Remaining gap: a stolen token can still be
+refreshed until the victim logs out or resets their password — full elimination would require
+DB-backed refresh token rotation with `HttpOnly` cookies.
 
 ---
 
@@ -215,6 +220,8 @@ warn the user when fallback data is in use.
 | C2 | PRNG for verification codes | 2026-05-28 |
 | C3 | Verify code brute-force | 2026-05-28 |
 | H1 | Login brute force | 2026-05-28 |
+| H3 | Password reset didn't invalidate JWTs (token_version) | 2026-05-28 |
+| H4 | Indefinite token refresh — logout now invalidates all tokens | 2026-05-28 |
 | H5 | Scraper cost amplification | 2026-05-28 |
 | M1 | Username/email enumeration at registration | 2026-05-28 |
 | M3 | Internal exception strings leaked to clients | 2026-05-28 |

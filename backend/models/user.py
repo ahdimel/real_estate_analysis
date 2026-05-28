@@ -13,6 +13,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_verified = Column(Boolean, nullable=False, default=True)
     plan = Column(String, nullable=False, server_default="free")
+    token_version = Column(Integer, nullable=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     properties = relationship("Property", back_populates="user", cascade="all, delete-orphan")
