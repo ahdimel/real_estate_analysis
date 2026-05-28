@@ -413,6 +413,12 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ---
 
+## Security To-Dos
+
+See `.claude/SECURITY.md` for the full list of open security findings (18 items, prioritised by severity). Critical items have been addressed; High/Medium/Low remain open.
+
+---
+
 ## Pending / Next Steps
 
 ### PDF polish (visual / layout)
@@ -427,17 +433,6 @@ The PDF template in `frontend/components/ReportPDF.tsx` has a few remaining refi
 Currently SQLite is used locally and PostgreSQL in production. This was the right call while prototyping rapidly, but as the app grows it's worth standardizing on Postgres everywhere via Docker Compose — migrations and type behavior would then be validated locally against the same engine that runs in production. Not urgent while the schema stays simple, but worth doing before any complex queries or migrations are introduced.
 
 
-
-The following production-hardening improvements are identified and scoped but not yet implemented.
-A future agent can pick up any of these items — the context here is enough to start.
-
-### Rate limiting on expensive endpoints
-Two endpoints have no per-user throttle:
-- `POST /scraper/zillow` — hits ScraperAPI, which costs money per request
-- `GET /properties/{id}/analysis` — runs a full 30-year 3-scenario projection on every call
-
-Add `slowapi` (starlette-native, ~10-line integration) with a per-IP or per-user limit.
-Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
 
 ---
 

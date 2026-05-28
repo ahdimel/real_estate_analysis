@@ -1,15 +1,15 @@
 import os
-import random
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.dependencies import get_current_user
 from backend.email import send_verification_email, send_password_reset_email
+from backend.limiter import limiter
 from backend.models.email_verification import EmailVerification
 from backend.models.password_reset import PasswordReset
 from backend.models.user import User
@@ -24,11 +24,12 @@ RESEND_COOLDOWN_SECONDS = 60
 
 
 def _generate_code() -> str:
-    return "".join(random.choices(string.digits, k=6))
+    return "".join(secrets.choice(string.digits) for _ in range(6))
 
 
 @router.post("/register", status_code=status.HTTP_202_ACCEPTED)
-def register(payload: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, payload: UserRegister, db: Session = Depends(get_db)):
     # Check against verified users
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
@@ -66,7 +67,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/verify", response_model=Token, status_code=status.HTTP_201_CREATED)
-def verify(payload: VerifyCode, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def verify(request: Request, payload: VerifyCode, db: Session = Depends(get_db)):
     verification = db.query(EmailVerification).filter(EmailVerification.email == payload.email).first()
 
     if not verification:
@@ -103,7 +105,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 @router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
-def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def forgot_password(request: Request, payload: ForgotPassword, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if user:
         existing = db.query(PasswordReset).filter(PasswordReset.email == payload.email).first()
@@ -133,7 +136,8 @@ def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
-def reset_password(payload: ResetPassword, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(request: Request, payload: ResetPassword, db: Session = Depends(get_db)):
     reset = db.query(PasswordReset).filter(PasswordReset.token == payload.token).first()
 
     if not reset:
@@ -164,7 +168,8 @@ def refresh(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/login", response_model=Token)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")

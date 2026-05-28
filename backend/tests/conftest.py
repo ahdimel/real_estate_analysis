@@ -72,8 +72,10 @@ def client(setup_test_db):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.limiter.enabled = False
     with TestClient(app) as c:
         yield c
+    app.state.limiter.enabled = True
     app.dependency_overrides.clear()
 
 

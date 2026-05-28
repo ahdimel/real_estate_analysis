@@ -4,10 +4,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.limiter import limiter
 from backend.routes import auth, properties, analysis, market, scraper, reports
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="REIA API", version="0.1.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
 app.include_router(properties.router)

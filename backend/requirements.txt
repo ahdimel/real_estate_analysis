@@ -1,4 +1,7 @@
 alembic==1.18.4
+limits==5.8.0
+slowapi==0.1.9
+wrapt==2.2.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
