@@ -13,7 +13,7 @@ from backend.schemas.analysis import AnalysisResponseOut
 from backend.schemas.property import PropertyOut
 from backend.schemas.report import ReportDetailOut, ReportGenerateResponse, ReportOut
 
-REPORT_LIMIT = 10
+CREDIT_LIMIT = 10
 
 router = APIRouter(tags=["reports"])
 
@@ -22,17 +22,17 @@ def _count_reports(db: Session, user_id: int) -> int:
     return db.query(Report).filter(Report.user_id == user_id).count()
 
 
-@router.post("/properties/{property_id}/report", response_model=ReportGenerateResponse)
-def generate_report(
+@router.post("/properties/{property_id}/analysis", response_model=ReportGenerateResponse)
+def run_analysis(
     property_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     count = _count_reports(db, current_user.id)
-    if count >= REPORT_LIMIT:
+    if count >= CREDIT_LIMIT:
         raise HTTPException(
             status_code=429,
-            detail=f"Lifetime report limit of {REPORT_LIMIT} reached.",
+            detail=f"Lifetime report limit of {CREDIT_LIMIT} reached.",
         )
 
     prop = db.query(Property).filter(
@@ -69,7 +69,7 @@ def generate_report(
 
     return ReportGenerateResponse(
         report=ReportDetailOut.model_validate(report),
-        remaining=REPORT_LIMIT - count - 1,
+        remaining=CREDIT_LIMIT - count - 1,
     )
 
 
@@ -113,7 +113,7 @@ def get_report_count(
     current_user: User = Depends(get_current_user),
 ):
     count = _count_reports(db, current_user.id)
-    return {"used": count, "limit": REPORT_LIMIT, "remaining": REPORT_LIMIT - count}
+    return {"used": count, "limit": CREDIT_LIMIT, "remaining": CREDIT_LIMIT - count}
 
 
 @router.get("/reports/{public_id}", response_model=ReportDetailOut)

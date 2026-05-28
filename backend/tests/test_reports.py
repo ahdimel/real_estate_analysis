@@ -1,6 +1,6 @@
 import pytest
 from backend.tests.conftest import TEST_USER
-from backend.routes.reports import REPORT_LIMIT
+from backend.routes.reports import CREDIT_LIMIT
 
 
 def _make_property(client, token, valid_property):
@@ -11,7 +11,7 @@ def _make_property(client, token, valid_property):
 
 def _generate(client, token, property_id):
     return client.post(
-        f"/properties/{property_id}/report",
+        f"/properties/{property_id}/analysis",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -23,7 +23,7 @@ def test_generate_report_success(client, auth_token, valid_property):
     res = _generate(client, auth_token, pid)
     assert res.status_code == 200
     body = res.json()
-    assert body["remaining"] == REPORT_LIMIT - 1
+    assert body["remaining"] == CREDIT_LIMIT - 1
     report = body["report"]
     assert len(report["public_id"]) == 8
     assert report["public_id"].isalnum()
@@ -37,8 +37,8 @@ def test_generate_decrements_remaining(client, auth_token, valid_property):
     pid = _make_property(client, auth_token, valid_property)
     r1 = _generate(client, auth_token, pid).json()
     r2 = _generate(client, auth_token, pid).json()
-    assert r1["remaining"] == REPORT_LIMIT - 1
-    assert r2["remaining"] == REPORT_LIMIT - 2
+    assert r1["remaining"] == CREDIT_LIMIT - 1
+    assert r2["remaining"] == CREDIT_LIMIT - 2
 
 
 def test_generate_wrong_owner(client, auth_token, get_code, valid_property):
@@ -48,7 +48,7 @@ def test_generate_wrong_owner(client, auth_token, get_code, valid_property):
     token_b = client.post(
         "/auth/verify", json={"email": bob["email"], "code": get_code(bob["email"])}
     ).json()["access_token"]
-    res = client.post(f"/properties/{pid}/report", headers={"Authorization": f"Bearer {token_b}"})
+    res = client.post(f"/properties/{pid}/analysis", headers={"Authorization": f"Bearer {token_b}"})
     assert res.status_code == 404
 
 
@@ -59,7 +59,7 @@ def test_generate_nonexistent_property(client, auth_token):
 
 def test_generate_enforces_lifetime_limit(client, auth_token, valid_property):
     pid = _make_property(client, auth_token, valid_property)
-    for _ in range(REPORT_LIMIT):
+    for _ in range(CREDIT_LIMIT):
         res = _generate(client, auth_token, pid)
         assert res.status_code == 200
     res = _generate(client, auth_token, pid)
@@ -111,7 +111,7 @@ def test_list_reports_isolated_between_users(client, auth_token, get_code, valid
 def test_report_count(client, auth_token, valid_property):
     res = client.get("/reports/count", headers={"Authorization": f"Bearer {auth_token}"})
     assert res.status_code == 200
-    assert res.json() == {"used": 0, "limit": REPORT_LIMIT, "remaining": REPORT_LIMIT}
+    assert res.json() == {"used": 0, "limit": CREDIT_LIMIT, "remaining": CREDIT_LIMIT}
 
     pid = _make_property(client, auth_token, valid_property)
     _generate(client, auth_token, pid)
@@ -119,7 +119,7 @@ def test_report_count(client, auth_token, valid_property):
     res = client.get("/reports/count", headers={"Authorization": f"Bearer {auth_token}"})
     data = res.json()
     assert data["used"] == 1
-    assert data["remaining"] == REPORT_LIMIT - 1
+    assert data["remaining"] == CREDIT_LIMIT - 1
 
 
 # ── Re-download (GET /reports/{public_id}) ────────────────────────────────────

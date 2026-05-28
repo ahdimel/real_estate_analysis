@@ -1,19 +1,17 @@
-from dataclasses import asdict
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.dependencies import get_current_user
 from backend.models.property import Property
+from backend.models.report import Report
 from backend.models.user import User
-from backend.analysis.rental import analyse_rental
-from backend.schemas.analysis import AnalysisResponseOut
+from backend.schemas.report import ReportDetailOut
 
 router = APIRouter(prefix="/properties", tags=["analysis"])
 
 
-@router.get("/{property_id}/analysis", response_model=AnalysisResponseOut)
+@router.get("/{property_id}/analysis", response_model=ReportDetailOut)
 def get_analysis(
     property_id: int,
     db: Session = Depends(get_db),
@@ -26,5 +24,13 @@ def get_analysis(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    result = analyse_rental(prop)
-    return AnalysisResponseOut(**asdict(result))
+    report = (
+        db.query(Report)
+        .filter(Report.user_id == current_user.id, Report.property_id == property_id)
+        .order_by(Report.generated_at.desc(), Report.id.desc())
+        .first()
+    )
+    if not report:
+        raise HTTPException(status_code=404, detail="No analysis found. Run an analysis to get started.")
+
+    return report

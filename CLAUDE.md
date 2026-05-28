@@ -55,7 +55,8 @@ REI/
 │   │   ├── auth.py                 # POST /auth/register, /auth/verify, /auth/login,
 │   │   │                           #   /auth/forgot-password, /auth/reset-password, /auth/refresh
 │   │   ├── properties.py           # CRUD /properties — user-scoped, 10-property cap
-│   │   ├── analysis.py             # GET /properties/{id}/analysis
+│   │   ├── analysis.py             # GET /properties/{id}/analysis → latest snapshot (ReportDetailOut) or 404
+│   │   ├── reports.py              # POST /properties/{id}/analysis (costs 1 credit), GET/list /reports/*
 │   │   ├── market.py               # GET /market/rate, GET /market/mortgage-rate
 │   │   └── scraper.py              # POST /scraper/zillow
 │   ├── analysis/
@@ -70,7 +71,7 @@ REI/
 │   │   ├── test_properties.py      # CRUD + ownership isolation
 │   │   ├── test_analysis.py        # Analysis math unit tests + full API flow
 │   │   ├── test_market.py          # Market rate endpoint
-│   │   └── test_reports.py         # Report generation, listing, re-download, limit enforcement
+│   │   └── test_reports.py         # Analysis credit spend, listing, re-download, CREDIT_LIMIT enforcement
 │   └── schemas/
 │       ├── report.py               # ReportOut, ReportDetailOut, ReportGenerateResponse
 └── frontend/
@@ -91,7 +92,7 @@ REI/
         ├── page.tsx                # Landing: Sign in / Create account buttons
         ├── login/page.tsx          # Login form (includes Forgot password? link)
         ├── register/page.tsx       # Two-step registration (form → verify code)
-        ├── dashboard/page.tsx      # Reports panel + property list (10 max), delete, link to analysis
+        ├── dashboard/page.tsx      # Analysis History panel + property list (10 max), delete, link to analysis
         ├── terms/page.tsx          # Terms & Conditions
         ├── donate/page.tsx         # Donation page — Ko-fi link (cash); Bitcoin TBD
         ├── forgot-password/page.tsx # Email entry form — triggers reset email
@@ -99,7 +100,7 @@ REI/
         └── properties/
             ├── new/page.tsx        # New property — renders <PropertyForm>
             ├── [id]/edit/page.tsx  # Edit property — renders <PropertyForm> prefilled
-            └── [id]/analysis/page.tsx  # Full analysis + PDF reports section + CSV/JPG export
+            └── [id]/analysis/page.tsx  # Loads latest snapshot; Run Analysis (credit); free PDF download; CSV/JPG export
 ```
 
 > **Note:** `frontend/CLAUDE.md` contains only `@AGENTS.md` — it is a redirect, not real docs.
@@ -291,7 +292,14 @@ Implementation: finds the largest SVG by pixel area inside `chartRef`, clones it
 
 ---
 
-## Reports & PDF Export
+## Analysis Credits & PDF Export
+
+### Credit model
+**Each credit buys one analysis run.** `CREDIT_LIMIT = 10` lifetime per user (`backend/routes/reports.py`). Enforced at `POST /properties/{id}/analysis` time (429 if exceeded). Counted as `SELECT COUNT(*) FROM reports WHERE user_id = ?` — no monthly reset, no date math.
+
+Spending a credit runs the analysis engine server-side, stores a snapshot of the inputs + results, and returns them to the client. PDF generation is a free, on-demand, client-side action against any stored snapshot — it never costs a credit.
+
+This model was chosen because the analysis (computation + insight) is the scarce resource, not the document format. Future pricing tiers will grant more credits rather than more PDF downloads.
 
 ### Data model
 ```
@@ -301,24 +309,30 @@ reports (id [int PK], public_id [char(8) UNIQUE], user_id [FK→users],
          snapshot [JSON], generated_at)
 ```
 
-`public_id` — 8 characters from `0-9A-Z` (base-36). Generated with `secrets.choice` in a retry loop with a `UNIQUE` DB constraint as the safety net. With a 500-user cap and 10 reports/user the ID space (36⁸ ≈ 2.8T) is effectively collision-free.
+The DB table is still named `reports`; the concept is now "analysis runs". `snapshot` stores `{property: PropertyOut, analysis: AnalysisResponseOut}` at run time — the client cannot tamper with what is stored.
 
-`snapshot` — JSON blob storing the full `PropertyOut` + `AnalysisResponseOut` at generation time. The analysis is re-run server-side on generation — the client cannot tamper with the stored data.
+`public_id` — 8 characters from `0-9A-Z` (base-36). Generated with `secrets.choice` in a retry loop with a `UNIQUE` DB constraint as the safety net. With a 500-user cap and 10 credits/user the ID space (36⁸ ≈ 2.8T) is effectively collision-free.
 
-`property_id` is set to NULL when a property is deleted (`ondelete="SET NULL"`). `property_name` is denormalized so the report row (and its re-download) survive property deletion.
-
-**REPORT_LIMIT = 10 lifetime per user.** Enforced at `POST /properties/{id}/report` time (429 if exceeded). Counted as `SELECT COUNT(*) FROM reports WHERE user_id = ?` — no monthly reset, no date math.
+`property_id` is set to NULL when a property is deleted (`ondelete="SET NULL"`). `property_name` is denormalized so the row (and its PDF re-download) survive property deletion.
 
 ### Endpoints
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/properties/{id}/report` | Generate — costs 1 credit, returns snapshot + remaining |
-| `GET` | `/properties/{id}/reports` | All reports for this property (no snapshot) |
-| `GET` | `/reports` | All user reports across all properties (no snapshot) |
+| `POST` | `/properties/{id}/analysis` | Run analysis — costs 1 credit; returns `{report: ReportDetailOut, remaining: int}` |
+| `GET` | `/properties/{id}/analysis` | Returns the most recent snapshot (`ReportDetailOut`); 404 if none exists yet |
+| `GET` | `/properties/{id}/reports` | All analysis runs for this property (no snapshot) |
+| `GET` | `/reports` | All analysis runs for the current user (no snapshot) |
 | `GET` | `/reports/count` | `{used, limit, remaining}` |
-| `GET` | `/reports/{public_id}` | Full report with snapshot (for re-download) |
+| `GET` | `/reports/{public_id}` | Full snapshot by public_id (used for PDF re-downloads) |
 
-All report endpoints are user-scoped — a user can only access their own reports.
+All endpoints are user-scoped — a user can only access their own data.
+
+### Analysis page flow
+1. On load: `GET /properties/{id}/analysis` — if 404, shows empty state with "Run Analysis" prompt; if 200, displays results from snapshot.
+2. Inputs-changed banner: if `purchase_price`, `annual_interest_rate`, `rent_lower`, or `rent_upper` differ between `snapshot.property` and the current property, a warning is shown with the old results still visible.
+3. "Run Analysis — 1 credit" button calls `POST /properties/{id}/analysis`, updates the display immediately from the response.
+4. "↓ Download PDF" button is free, appears once an analysis exists, generates the PDF client-side.
+5. "Analysis History" list shows all past runs; each row has a free "↓ PDF" re-download button.
 
 ### Client-side PDF (`@react-pdf/renderer`)
 PDF is assembled entirely in the browser — nothing is stored on the server. `@react-pdf/renderer` v4 is dynamically imported (`import("@react-pdf/renderer")`) to avoid Next.js SSR errors. The `pdf(doc).toBlob()` result is downloaded via a temporary object URL.
@@ -332,9 +346,7 @@ Full 20-column data is available via the existing CSV export.
 
 **Chart capture:** same SVG→canvas approach as the existing JPG export but uses `#27272a` canvas background (zinc-800, matching the chart container) instead of white. Re-downloads from the dashboard pass `chartImageUrl: ""` — the chart slot renders empty; chart is only captured on the analysis page where it is rendered.
 
-**Re-download:** fetches the stored snapshot from `GET /reports/{public_id}`, then regenerates the PDF client-side. The table data reflects the original parameters at generation time. The chart on re-download from the analysis page reflects whichever scenario is currently active.
-
-**Parameters-changed notice:** if any of `purchase_price`, `annual_interest_rate`, `rent_lower`, or `rent_upper` differ between the most-recent report's snapshot and the currently-loaded property, a warning banner is shown on the analysis page.
+**Re-download:** fetches the stored snapshot from `GET /reports/{public_id}`, then regenerates the PDF client-side. The table data always reflects the parameters at run time.
 
 ---
 
@@ -390,7 +402,7 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ## Pending / Next Steps
 
-### PDF report polish (visual / layout)
+### PDF polish (visual / layout)
 The PDF template in `frontend/components/ReportPDF.tsx` is functional but has several areas earmarked for refinement:
 
 - **Dynamic page numbers**: `TOTAL_PAGES = 5` is currently hardcoded. Replace with `@react-pdf/renderer`'s `<Text render={({ pageNumber, totalPages }) => \`${pageNumber} / ${totalPages}\`} />` API to eliminate the constant.
@@ -400,7 +412,6 @@ The PDF template in `frontend/components/ReportPDF.tsx` is functional but has se
 - **Custom font**: currently uses Helvetica (built-in). Registering Inter or a similar sans-serif via `Font.register()` would improve visual fidelity.
 - **MLS ID / source URL**: include in the property details section if present on the snapshot.
 - **PDF generation loading state**: currently the button text changes to "Generating…". A full-page overlay or progress indicator would be more informative for slow connections.
-- **Property `updated_at` column**: the parameters-changed notice currently compares 4 key fields between snapshot and current property. Adding an `updated_at` timestamp to the `properties` table (new Alembic migration) would allow a more reliable "edited since report" check.
 
 ### Standardize on PostgreSQL locally (when scaling up)
 Currently SQLite is used locally and PostgreSQL in production. This was the right call while prototyping rapidly, but as the app grows it's worth standardizing on Postgres everywhere via Docker Compose — migrations and type behavior would then be validated locally against the same engine that runs in production. Not urgent while the schema stays simple, but worth doing before any complex queries or migrations are introduced.

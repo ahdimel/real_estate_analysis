@@ -215,25 +215,37 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_analysis_endpoint_returns_200(client, auth_token, valid_property):
+def test_analysis_endpoint_returns_404_before_first_run(client, auth_token, valid_property):
     prop = client.post(PROPS_URL, json=valid_property, headers=auth_headers(auth_token)).json()
     res = client.get(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(auth_token))
-    assert res.status_code == 200
+    assert res.status_code == 404
 
 
-def test_analysis_response_structure(client, auth_token, valid_property):
+def test_analysis_endpoint_returns_snapshot_after_run(client, auth_token, valid_property):
     prop = client.post(PROPS_URL, json=valid_property, headers=auth_headers(auth_token)).json()
+    client.post(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(auth_token))
     data = client.get(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(auth_token)).json()
-    assert "summary_low" in data
-    assert "summary_mid" in data
-    assert "summary_high" in data
-    assert len(data["projections_mid"]) == 30
+    assert data["property_id"] == prop["id"]
+    assert "snapshot" in data
+    assert "summary_low" in data["snapshot"]["analysis"]
+    assert "summary_mid" in data["snapshot"]["analysis"]
+    assert "summary_high" in data["snapshot"]["analysis"]
+    assert len(data["snapshot"]["analysis"]["projections_mid"]) == 30
 
 
 def test_analysis_unauthenticated_rejected(client, auth_token, valid_property):
     prop = client.post(PROPS_URL, json=valid_property, headers=auth_headers(auth_token)).json()
     res = client.get(f"{PROPS_URL}/{prop['id']}/analysis")
     assert res.status_code in (401, 403)
+
+
+def test_analysis_returns_most_recent_snapshot(client, auth_token, valid_property):
+    prop = client.post(PROPS_URL, json=valid_property, headers=auth_headers(auth_token)).json()
+    first = client.post(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(auth_token)).json()["report"]["public_id"]
+    second = client.post(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(auth_token)).json()["report"]["public_id"]
+    data = client.get(f"{PROPS_URL}/{prop['id']}/analysis", headers=auth_headers(auth_token)).json()
+    assert data["public_id"] == second
+    assert data["public_id"] != first
 
 
 def test_analysis_other_users_property_rejected(client, auth_token, valid_property, get_code):

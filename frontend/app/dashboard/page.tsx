@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import type { ReportSnapshot } from "@/components/ReportPDF";
 
 const PROPERTY_LIMIT = 10;
-const REPORT_LIMIT = 10;
+const CREDIT_LIMIT = 10;
 
 interface Property {
   id: number;
@@ -147,9 +147,9 @@ export default function DashboardPage() {
         {/* ── Reports section ─────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">PDF Reports</h2>
+            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">Analysis History</h2>
             <span className="text-xs text-zinc-500">
-              {loadingReports ? "…" : `${reportsUsed} / ${REPORT_LIMIT} lifetime reports used`}
+              {loadingReports ? "…" : `${reportsUsed} / ${CREDIT_LIMIT} credits used`}
             </span>
           </div>
 
@@ -161,7 +161,7 @@ export default function DashboardPage() {
               <p className="text-sm text-zinc-500">Loading reports…</p>
             ) : reports.length === 0 ? (
               <p className="text-sm text-zinc-500">
-                No reports generated yet. Visit a property's analysis page to generate one.
+                No analyses run yet. Visit a property and click "Run Analysis" to get started.
               </p>
             ) : (
               <div className="space-y-2">
