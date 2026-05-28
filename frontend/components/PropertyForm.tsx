@@ -43,6 +43,7 @@ export const EMPTY_FORM = {
   appreciation_rate_pct: "3",
   property_tax_increase_pct: "2",
   insurance_increase_pct: "4",
+  market_cagr_pct: "8.5",
 };
 
 export type FormData = typeof EMPTY_FORM;
@@ -73,6 +74,7 @@ export function buildPayload(form: FormData) {
     appreciation_rate_pct: parseFloat(form.appreciation_rate_pct),
     property_tax_increase_pct: parseFloat(form.property_tax_increase_pct),
     insurance_increase_pct: parseFloat(form.insurance_increase_pct),
+    market_cagr_pct: parseFloat(form.market_cagr_pct),
     mls_id: form.mls_id || null,
     source_url: form.source_url || null,
     property_tax_url: form.property_tax_url || null,
@@ -358,6 +360,10 @@ export default function PropertyForm({
           value={form.insurance_annual} onChange={handleChange} />
 
         <SectionHeader title="Year-over-Year Adjustments" />
+
+        <Field label="Alternative investment CAGR" name="market_cagr_pct" type="number" min="0" max="100" step="0.1" suffix="%"
+          tooltip="Expected annual return for the alternative investment benchmark (e.g. S&P 500). Default of 8.5% is suggested from a 50-year historical average of S&P 500 returns."
+          value={form.market_cagr_pct} onChange={handleChange} />
 
         <Field label="Annual insurance premium increase" name="insurance_increase_pct" type="number" min="0" max="100" step="0.1" suffix="%"
           tooltip="Expected yearly increase in your home insurance premium. Insurance costs have been rising faster than general inflation in recent years; 4% is a reasonable baseline."

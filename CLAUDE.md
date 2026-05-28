@@ -166,7 +166,7 @@ grm_mid            = purchase_price / (rent_mid × 12)   ← still returned by A
 
 PMI drops off when `loan_balance ≤ 0.80 × purchase_price`.
 
-Market CAGR = hardcoded 8.5% (`MARKET_CAGR` constant in `backend/analysis/market.py`). This is the S&P 500 50-year historical price return average, derived from verified historical closing prices. No DB storage, no live fetch. To update the baseline, change the constant and redeploy.
+Market CAGR = `prop.market_cagr_pct` (user-supplied, stored on the `properties` table). Default is 8.5%, the S&P 500 50-year historical price return average. The constant `MARKET_CAGR` in `backend/analysis/market.py` is no longer used for the projection — `analyse_rental()` reads `float(prop.market_cagr_pct) / 100` directly. `get_market_cagr()` is retained only as the source of `market_label` in the API response.
 
 ### Zillow scraper — dual mode
 - **Local dev** (no `SCRAPER_API_KEY`): curl_cffi impersonates Chrome 124 TLS fingerprint directly
@@ -436,6 +436,7 @@ Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
 
 ## Known Gotchas
 
+- **`market_cagr_pct` is a user-editable field, not a hardcoded constant.** Stored as `Numeric(5,2)` on the `properties` table (`server_default="8.5"`). The analysis engine reads it directly — do not use the `MARKET_CAGR` constant from `backend/analysis/market.py` for projections. `get_market_cagr()` is kept only to supply `market_label` in the API response.
 - **`down_payment` is a percentage, not dollars.** Stored as `Numeric(5,2)`, represents 0–100. A 20% down payment is stored as `20.00`, not `200000.00`. The analysis engine divides by 100 to get the decimal.
 - **SQLite naive datetimes**: SQLite strips timezone info on write. Use `.replace(tzinfo=timezone.utc)` when comparing a DB datetime to `datetime.now(timezone.utc)`. Do NOT use `.astimezone()` — it raises on naive datetimes.
 - **Railway Source Root**: leave blank in the Railway dashboard. Setting it causes Railway to look for `frontend/frontend/` instead of `frontend/`.

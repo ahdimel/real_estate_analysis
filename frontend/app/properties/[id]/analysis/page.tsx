@@ -540,7 +540,7 @@ export default function AnalysisPage() {
               <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-4 space-y-2 text-sm text-zinc-300">
                 <p><span className="font-medium text-zinc-100">Monthly CF —</span> Rent minus all monthly expenses (mortgage, tax, insurance, HOA, management, maintenance). Positive means cash in your pocket each month; negative means you are subsidizing the property out of pocket.</p>
                 <p><span className="font-medium text-zinc-100">CoC Return —</span> Your Year 1 net cash flow as a percentage of your total upfront cash (down payment + closing costs + initial repairs). A 6% CoC means you earn 6 cents per year for every dollar you put in on day one.</p>
-                <p><span className="font-medium text-zinc-100">Break-even —</span> The year your cumulative real estate value first exceeds what the same money would have grown to in an S&P 500 index fund. Before that year the stock investment is ahead; after it, real estate wins.</p>
+                <p><span className="font-medium text-zinc-100">Break-even —</span> The year your cumulative real estate value first exceeds what the same money would have grown to in the alternative investment. Before that year the alternative investment is ahead; after it, real estate wins.</p>
               </div>
             </section>
 
@@ -584,7 +584,7 @@ export default function AnalysisPage() {
                     />
                     <Legend verticalAlign="top" height={36} wrapperStyle={{ color: "#a1a1aa" }} />
                     <Line yAxisId="dollar" type="monotone" dataKey="re_value" name="RE Value" stroke="#10b981" dot={false} strokeWidth={2} />
-                    <Line yAxisId="dollar" type="monotone" dataKey="stock_value" name={data.market_label} stroke="#8b5cf6" dot={false} strokeWidth={2} strokeDasharray="3 5" />
+                    <Line yAxisId="dollar" type="monotone" dataKey="stock_value" name={`Alt. Investment (${data.market_cagr_pct}%)`} stroke="#8b5cf6" dot={false} strokeWidth={2} strokeDasharray="3 5" />
                     <Line yAxisId="pct" type="monotone" dataKey="cumulative_roi_pct" name="Cumulative ROI %" stroke="#f59e0b" dot={false} strokeWidth={2} strokeDasharray="5 3" />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -603,7 +603,7 @@ export default function AnalysisPage() {
                   </div>
                   <div className="flex gap-2">
                     <span className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full bg-violet-500"></span>
-                    <p><span className="font-medium text-zinc-100">S&P 500 Equivalent —</span> What that same initial capital would be worth if invested in an index fund, compounded at the historical 50-year average return. No additional contributions are assumed — any monthly shortfalls you cover out-of-pocket are not reflected here. See <span className="font-medium">Total out-of-pocket (30yr)</span> in the scenario table for the full capital picture.</p>
+                    <p><span className="font-medium text-zinc-100">Alternative Investment Opportunity Cost —</span> What that same initial capital would be worth if invested in an alternative investment vehicle, compounded at the user-specified {data.market_cagr_pct}% annual return. No additional contributions are assumed — any monthly shortfalls you cover out-of-pocket are not reflected here. See <span className="font-medium">Total out-of-pocket (30yr)</span> in the scenario table for the full capital picture.{data.market_cagr_pct === 8.5 && " The default 8.5% reflects the 50-year historical average of S&P 500 annual returns."}</p>
                   </div>
                 </div>
               </div>

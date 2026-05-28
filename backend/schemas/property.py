@@ -44,6 +44,7 @@ class PropertyCreate(BaseModel):
     appreciation_rate_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
     property_tax_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
     insurance_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
+    market_cagr_pct: Decimal = Field(default=Decimal("8.5"), ge=Decimal("0.0"), le=Decimal("100.0"))
 
     @model_validator(mode="after")
     def validate_cross_fields(self):
@@ -99,6 +100,7 @@ class PropertyOut(BaseModel):
     appreciation_rate_pct: float
     property_tax_increase_pct: float
     insurance_increase_pct: float
+    market_cagr_pct: float
     created_at: datetime
 
     model_config = {"from_attributes": True}

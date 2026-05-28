@@ -57,6 +57,7 @@ class FakeProp:
     appreciation_rate_pct = 4.0
     property_tax_increase_pct = 2.0
     insurance_increase_pct = 4.0
+    market_cagr_pct = 8.5
 
 
 class FakeBreakEvenProp:
@@ -85,6 +86,7 @@ class FakeBreakEvenProp:
     appreciation_rate_pct = 4.0
     property_tax_increase_pct = 2.0
     insurance_increase_pct = 2.0
+    market_cagr_pct = 8.5
 
 
 def test_analyse_rental_returns_30_years():

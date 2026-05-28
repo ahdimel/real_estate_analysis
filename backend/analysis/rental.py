@@ -187,7 +187,8 @@ def analyse_rental(prop) -> AnalysisResult:
     rent_high = float(prop.rent_upper)
     rent_mid = (rent_low + rent_high) / 2
 
-    market_cagr, market_label = get_market_cagr()
+    market_cagr = float(prop.market_cagr_pct) / 100
+    _, market_label = get_market_cagr()
 
     common = dict(
         loan_amount=loan_amount,

@@ -49,6 +49,7 @@ class Property(Base):
     appreciation_rate_pct = Column(Numeric(5, 1), nullable=False)
     property_tax_increase_pct = Column(Numeric(5, 1), nullable=False)
     insurance_increase_pct = Column(Numeric(5, 1), nullable=False)
+    market_cagr_pct = Column(Numeric(5, 2), nullable=False, server_default="8.5")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
