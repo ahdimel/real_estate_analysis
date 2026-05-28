@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Donate — REI Analyzer",
+  title: "Donate — REIA",
 };
 
 export default function DonatePage() {
@@ -12,11 +12,11 @@ export default function DonatePage() {
           <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
             ← Back
           </Link>
-          <h1 className="text-2xl font-bold text-zinc-100 mt-4">Support REI Analyzer</h1>
+          <h1 className="text-2xl font-bold text-zinc-100 mt-4">Support REIA</h1>
         </div>
 
         <p className="text-sm leading-relaxed">
-          REI Analyzer is free to use. If it helped you make a more confident real estate decision,
+          Real Estate Investment Analyzer is free to use. If it helped you make a more confident real estate decision,
           consider buying us a coffee — a suggested amount is <span className="text-zinc-100 font-medium">$10</span>.
         </p>
 

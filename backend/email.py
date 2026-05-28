@@ -6,7 +6,7 @@ load_dotenv()
 
 resend.api_key = os.getenv("RESEND_API_KEY", "")
 FROM_ADDRESS = "noreply@reianalyzer.online"
-APP_NAME = "REI Analyzer"
+APP_NAME = "REIA"
 
 
 def send_verification_email(to_email: str, code: str) -> None:

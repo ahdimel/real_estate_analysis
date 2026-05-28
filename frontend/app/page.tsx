@@ -16,12 +16,11 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-900 gap-6">
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold text-zinc-100">REI</h1>
-        <p className="text-zinc-400">Real Estate Investment Analyzer</p>
+        <h1 className="text-4xl font-bold text-zinc-100">Real Estate Investment Analyzer</h1>
       </div>
 
       <div className="max-w-md rounded-lg border border-zinc-700 bg-zinc-800 px-6 py-4 text-sm text-zinc-300 leading-relaxed shadow-sm">
-        Welcome! REI Analyzer will help you run the numbers on properties you&apos;re interested in acquiring. Let&apos;s see if they make sense as investment rental properties. Alternatively, this app will also help you decide on whether to continue renting, or to buy your own house. Let&apos;s get cranking!
+        Welcome! Real Estate Investment Analyzer will help you run the numbers on properties you&apos;re interested in acquiring. Let&apos;s see if they make sense as investment rental properties. Alternatively, this app will also help you decide on whether to continue renting, or to buy your own house. Let&apos;s get cranking!
       </div>
 
       <div className="flex gap-3">

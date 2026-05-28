@@ -74,7 +74,7 @@ export default function EditPropertyPage() {
   return (
     <div className="min-h-screen bg-zinc-900">
       <nav className="bg-zinc-800 border-b border-zinc-700 px-6 py-4 flex items-center justify-between">
-        <span className="font-semibold text-zinc-100">REI</span>
+        <span className="font-semibold text-zinc-100">REIA</span>
         <button onClick={() => router.push("/dashboard")} className="text-sm text-zinc-400 hover:text-zinc-100">
           ← Back to dashboard
         </button>

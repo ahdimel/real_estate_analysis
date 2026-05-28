@@ -288,11 +288,11 @@ function ProjectionTable({ rows, scenarioLabel, marketCagrPct }: { rows: YearRow
   );
 }
 
-function Footer({ reportId, page, total }: { reportId: string; page: number; total: number }) {
+function Footer({ reportId }: { reportId: string }) {
   return (
     <View style={s.footer} fixed>
-      <Text style={s.footerText}>REI Analyzer · Report {reportId}</Text>
-      <Text style={s.footerText}>Page {page} of {total}</Text>
+      <Text style={s.footerText}>REIA · Report {reportId}</Text>
+      <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
     </View>
   );
 }
@@ -302,17 +302,15 @@ function Footer({ reportId, page, total }: { reportId: string; page: number; tot
 export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt }: ReportDocumentProps) {
   const { property: p, analysis: a } = snapshot;
   const address = `${p.address_street}, ${p.address_city}, ${p.address_state} ${p.address_zip}`;
-  const TOTAL_PAGES = 5;
-
   return (
-    <Document title={`REI Report ${reportId}`} author="REI Analyzer">
+    <Document title={`REIA Report ${reportId}`} author="REIA">
 
       {/* ── Page 1: Inputs + Scenario Summary ──────────────────────────── */}
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.headerTitle}>REI Analyzer — Investment Report</Text>
+            <Text style={s.headerTitle}>REIA — Investment Report</Text>
             <Text style={s.headerSub}>{address}</Text>
           </View>
           <View style={s.headerRight}>
@@ -389,7 +387,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
         <Text style={s.sectionTitle}>Scenario Comparison</Text>
         <ScenarioTable analysis={a} />
 
-        <Footer reportId={reportId} page={1} total={TOTAL_PAGES} />
+        <Footer reportId={reportId} />
       </Page>
 
       {/* ── Page 2: Chart ──────────────────────────────────────────────── */}
@@ -402,7 +400,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
         <Text style={s.chartNote}>
           Chart reflects the scenario active at time of download. Green = RE Value, Amber = Cumulative ROI %, Purple = Alt. Investment ({a.market_cagr_pct}% CAGR).
         </Text>
-        <Footer reportId={reportId} page={2} total={TOTAL_PAGES} />
+        <Footer reportId={reportId} />
       </Page>
 
       {/* ── Page 3: Low scenario table ─────────────────────────────────── */}
@@ -412,7 +410,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
           <Text style={s.headerId}>{reportId}</Text>
         </View>
         <ProjectionTable rows={a.projections_low} scenarioLabel="Low Rent Scenario" marketCagrPct={a.market_cagr_pct} />
-        <Footer reportId={reportId} page={3} total={TOTAL_PAGES} />
+        <Footer reportId={reportId} />
       </Page>
 
       {/* ── Page 4: Medium scenario table ──────────────────────────────── */}
@@ -422,7 +420,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
           <Text style={s.headerId}>{reportId}</Text>
         </View>
         <ProjectionTable rows={a.projections_mid} scenarioLabel="Medium Rent Scenario" marketCagrPct={a.market_cagr_pct} />
-        <Footer reportId={reportId} page={4} total={TOTAL_PAGES} />
+        <Footer reportId={reportId} />
       </Page>
 
       {/* ── Page 5: High scenario table ────────────────────────────────── */}
@@ -432,7 +430,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
           <Text style={s.headerId}>{reportId}</Text>
         </View>
         <ProjectionTable rows={a.projections_high} scenarioLabel="High Rent Scenario" marketCagrPct={a.market_cagr_pct} />
-        <Footer reportId={reportId} page={5} total={TOTAL_PAGES} />
+        <Footer reportId={reportId} />
       </Page>
 
     </Document>

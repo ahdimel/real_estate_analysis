@@ -42,7 +42,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="REI API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="REIA API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(properties.router)
@@ -62,7 +62,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "REI API is running"}
+    return {"message": "REIA API is running"}
 
 
 @app.get("/health")

@@ -440,9 +440,6 @@ Two endpoints have no per-user throttle:
 Add `slowapi` (starlette-native, ~10-line integration) with a per-IP or per-user limit.
 Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
 
-### Bitcoin donations
-`/donate` page exists with Ko-fi cash donation link. Bitcoin address placeholder is intentionally omitted — a static address is a privacy risk (full transaction history visible on-chain). Research BTCPay Server or a rotating address scheme before adding.
-
 ---
 
 ## Known Gotchas

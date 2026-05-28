@@ -131,7 +131,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-zinc-900">
       <nav className="bg-zinc-800 border-b border-zinc-700 px-6 py-4 flex items-center justify-between">
-        <span className="font-semibold text-zinc-100">REI</span>
+        <span className="font-semibold text-zinc-100">REIA</span>
         <div className="flex items-center gap-4">
           <span className="text-sm text-zinc-400">
             Signed in as <span className="font-medium text-zinc-200">{username}</span>

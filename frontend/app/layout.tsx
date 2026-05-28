@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "REI — Real Estate Investment Analyzer",
+  title: "REIA — Real Estate Investment Analyzer",
   description: "Deterministic rental property analysis",
 };
 

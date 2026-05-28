@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Terms & Conditions — REI Analyzer",
+  title: "Terms & Conditions — REIA",
 };
 
 export default function TermsPage() {
@@ -19,7 +19,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-wide">1. No Financial Advice</h2>
           <p className="text-sm leading-relaxed">
-            REI Analyzer is an educational tool that generates deterministic projections based on inputs
+            Real Estate Investment Analyzer is an educational tool that generates deterministic projections based on inputs
             you provide. Nothing on this site constitutes financial, investment, legal, or tax advice.
             All projections are estimates only. You are solely responsible for any investment decisions
             you make. Consult a licensed financial advisor before making real estate or investment decisions.
@@ -57,7 +57,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-wide">5. Limitation of Liability</h2>
           <p className="text-sm leading-relaxed">
-            To the fullest extent permitted by law, REI Analyzer and its operators shall not be liable
+            To the fullest extent permitted by law, Real Estate Investment Analyzer and its operators shall not be liable
             for any indirect, incidental, or consequential damages arising out of your use of this service,
             including any financial losses from decisions informed by its projections.
           </p>
