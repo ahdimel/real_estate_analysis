@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.routes import auth, properties, analysis, market, scraper
+from backend.routes import auth, properties, analysis, market, scraper, reports
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ app.include_router(properties.router)
 app.include_router(analysis.router)
 app.include_router(market.router)
 app.include_router(scraper.router)
+app.include_router(reports.router)
 
 app.add_middleware(
     CORSMiddleware,

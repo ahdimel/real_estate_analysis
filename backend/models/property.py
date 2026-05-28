@@ -53,3 +53,4 @@ class Property(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="properties")
+    reports = relationship("Report", back_populates="property", passive_deletes=True)

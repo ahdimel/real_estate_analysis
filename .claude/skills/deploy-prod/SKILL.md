@@ -140,6 +140,10 @@ curl -s https://backend-production-8eb7.up.railway.app/market/mortgage-rate
 
 # Market CAGR (confirms app_settings cache)
 curl -s https://backend-production-8eb7.up.railway.app/market/rate
+
+# Reports count endpoint (confirms reports table migrated correctly — expects 401, not 500)
+curl -s -o /dev/null -w "%{http_code}" https://backend-production-8eb7.up.railway.app/reports/count
+# Expected: 401 (unauthenticated). A 500 means the reports table is missing.
 ```
 
 Then open https://reianalyzer.online and confirm the landing page loads.

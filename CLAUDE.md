@@ -64,12 +64,15 @@ REI/
 │   │   └── mortgage_rate.py        # get_mortgage_rate(db): fetches Freddie Mac 30yr rate, caches 7 days
 │   ├── scraper/
 │   │   └── zillow.py               # scrape_zillow(url) → form-field dict
-│   └── tests/
-│       ├── conftest.py             # pytest fixtures: file-based SQLite + TestClient (NOT in-memory)
-│       ├── test_auth.py            # Registration, verification, login flows
-│       ├── test_properties.py      # CRUD + ownership isolation
-│       ├── test_analysis.py        # Analysis math unit tests + full API flow
-│       └── test_market.py          # Market rate endpoint
+│   ├── tests/
+│   │   ├── conftest.py             # pytest fixtures: file-based SQLite + TestClient (NOT in-memory)
+│   │   ├── test_auth.py            # Registration, verification, login flows
+│   │   ├── test_properties.py      # CRUD + ownership isolation
+│   │   ├── test_analysis.py        # Analysis math unit tests + full API flow
+│   │   ├── test_market.py          # Market rate endpoint
+│   │   └── test_reports.py         # Report generation, listing, re-download, limit enforcement
+│   └── schemas/
+│       ├── report.py               # ReportOut, ReportDetailOut, ReportGenerateResponse
 └── frontend/
     ├── railway.toml                # FRONTEND: startCommand="node_modules/.bin/next start -p $PORT"
     ├── package.json                # version field is the canonical app version (currently 0.2.0)
@@ -79,12 +82,16 @@ REI/
     ├── components/
     │   ├── Footer.tsx              # Shared footer: Terms, Donate, version — rendered in layout
     │   └── PropertyForm.tsx        # Shared intake form with Zillow scrape button + tooltips
+    ├── components/
+    │   ├── Footer.tsx              # Shared footer: Terms, Donate, version — rendered in layout
+    │   ├── PropertyForm.tsx        # Shared intake form with Zillow scrape button + tooltips
+    │   └── ReportPDF.tsx           # @react-pdf/renderer document — 5-page PDF template
     └── app/
         ├── layout.tsx              # Root layout — wraps everything in <AuthProvider> + <Footer>
         ├── page.tsx                # Landing: Sign in / Create account buttons
         ├── login/page.tsx          # Login form (includes Forgot password? link)
         ├── register/page.tsx       # Two-step registration (form → verify code)
-        ├── dashboard/page.tsx      # Property list (10 max), delete, link to analysis
+        ├── dashboard/page.tsx      # Reports panel + property list (10 max), delete, link to analysis
         ├── terms/page.tsx          # Terms & Conditions
         ├── donate/page.tsx         # Donation page — Ko-fi link (cash); Bitcoin TBD
         ├── forgot-password/page.tsx # Email entry form — triggers reset email
@@ -92,7 +99,7 @@ REI/
         └── properties/
             ├── new/page.tsx        # New property — renders <PropertyForm>
             ├── [id]/edit/page.tsx  # Edit property — renders <PropertyForm> prefilled
-            └── [id]/analysis/page.tsx  # Full analysis display + CSV/JPG export
+            └── [id]/analysis/page.tsx  # Full analysis + PDF reports section + CSV/JPG export
 ```
 
 > **Note:** `frontend/CLAUDE.md` contains only `@AGENTS.md` — it is a redirect, not real docs.
@@ -284,6 +291,53 @@ Implementation: finds the largest SVG by pixel area inside `chartRef`, clones it
 
 ---
 
+## Reports & PDF Export
+
+### Data model
+```
+reports (id [int PK], public_id [char(8) UNIQUE], user_id [FK→users],
+         property_id [FK→properties, SET NULL on delete],
+         property_name [denormalized string],
+         snapshot [JSON], generated_at)
+```
+
+`public_id` — 8 characters from `0-9A-Z` (base-36). Generated with `secrets.choice` in a retry loop with a `UNIQUE` DB constraint as the safety net. With a 500-user cap and 10 reports/user the ID space (36⁸ ≈ 2.8T) is effectively collision-free.
+
+`snapshot` — JSON blob storing the full `PropertyOut` + `AnalysisResponseOut` at generation time. The analysis is re-run server-side on generation — the client cannot tamper with the stored data.
+
+`property_id` is set to NULL when a property is deleted (`ondelete="SET NULL"`). `property_name` is denormalized so the report row (and its re-download) survive property deletion.
+
+**REPORT_LIMIT = 10 lifetime per user.** Enforced at `POST /properties/{id}/report` time (429 if exceeded). Counted as `SELECT COUNT(*) FROM reports WHERE user_id = ?` — no monthly reset, no date math.
+
+### Endpoints
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/properties/{id}/report` | Generate — costs 1 credit, returns snapshot + remaining |
+| `GET` | `/properties/{id}/reports` | All reports for this property (no snapshot) |
+| `GET` | `/reports` | All user reports across all properties (no snapshot) |
+| `GET` | `/reports/count` | `{used, limit, remaining}` |
+| `GET` | `/reports/{public_id}` | Full report with snapshot (for re-download) |
+
+All report endpoints are user-scoped — a user can only access their own reports.
+
+### Client-side PDF (`@react-pdf/renderer`)
+PDF is assembled entirely in the browser — nothing is stored on the server. `@react-pdf/renderer` v4 is dynamically imported (`import("@react-pdf/renderer")`) to avoid Next.js SSR errors. The `pdf(doc).toBlob()` result is downloaded via a temporary object URL.
+
+**PDF structure (5 pages):**
+- Page 1 (portrait): report header, all property inputs, key metrics (initial investment, loan, mortgage), scenario comparison table
+- Page 2 (landscape): 30-year projection chart captured as JPEG from the DOM via SVG→canvas pipeline
+- Pages 3–5 (landscape): 30-year projection tables for Low / Mid / High scenarios (8 key columns: Yr, Net CF, Cum. CF, Prop. Value, Equity, RE Value, ROI %, S&P 500)
+
+Full 20-column data is available via the existing CSV export.
+
+**Chart capture:** same SVG→canvas approach as the existing JPG export but uses `#27272a` canvas background (zinc-800, matching the chart container) instead of white. Re-downloads from the dashboard pass `chartImageUrl: ""` — the chart slot renders empty; chart is only captured on the analysis page where it is rendered.
+
+**Re-download:** fetches the stored snapshot from `GET /reports/{public_id}`, then regenerates the PDF client-side. The table data reflects the original parameters at generation time. The chart on re-download from the analysis page reflects whichever scenario is currently active.
+
+**Parameters-changed notice:** if any of `purchase_price`, `annual_interest_rate`, `rent_lower`, or `rent_upper` differ between the most-recent report's snapshot and the currently-loaded property, a warning banner is shown on the analysis page.
+
+---
+
 ## DNS & Domain Configuration
 
 Domain registrar: **Namecheap**. Email provider: **Resend**. Hosting: **Railway**.
@@ -335,6 +389,18 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ---
 
 ## Pending / Next Steps
+
+### PDF report polish (visual / layout)
+The PDF template in `frontend/components/ReportPDF.tsx` is functional but has several areas earmarked for refinement:
+
+- **Dynamic page numbers**: `TOTAL_PAGES = 5` is currently hardcoded. Replace with `@react-pdf/renderer`'s `<Text render={({ pageNumber, totalPages }) => \`${pageNumber} / ${totalPages}\`} />` API to eliminate the constant.
+- **Table column widths**: the 8-column 30-year projection table uses equal `flex: 1` columns. Some columns (e.g. "Cumulative ROI %") are wider text; consider assigning explicit `flex` weights so numbers don't wrap.
+- **Full 20-column table option**: the PDF currently shows 8 key columns per scenario with a note to use CSV for full data. A future option could toggle between condensed and full-column layouts (two table halves on separate landscape pages).
+- **Chart re-download quality**: when re-downloading from the dashboard (no active chart in DOM), `chartImageUrl` is empty and page 2 renders blank. Options: (a) skip page 2 on dashboard re-downloads and adjust TOTAL_PAGES, or (b) cache the last-captured chart data URL in the report snapshot.
+- **Custom font**: currently uses Helvetica (built-in). Registering Inter or a similar sans-serif via `Font.register()` would improve visual fidelity.
+- **MLS ID / source URL**: include in the property details section if present on the snapshot.
+- **PDF generation loading state**: currently the button text changes to "Generating…". A full-page overlay or progress indicator would be more informative for slow connections.
+- **Property `updated_at` column**: the parameters-changed notice currently compares 4 key fields between snapshot and current property. Adding an `updated_at` timestamp to the `properties` table (new Alembic migration) would allow a more reliable "edited since report" check.
 
 ### Standardize on PostgreSQL locally (when scaling up)
 Currently SQLite is used locally and PostgreSQL in production. This was the right call while prototyping rapidly, but as the app grows it's worth standardizing on Postgres everywhere via Docker Compose — migrations and type behavior would then be validated locally against the same engine that runs in production. Not urgent while the schema stays simple, but worth doing before any complex queries or migrations are introduced.

@@ -7,6 +7,7 @@ import {
   CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { useAuth } from "@/context/AuthContext";
+import type { ReportSnapshot } from "@/components/ReportPDF";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,22 @@ interface AnalysisData {
   projections_high: YearRow[];
 }
 
+interface PropertyData {
+  purchase_price: number;
+  annual_interest_rate: number;
+  rent_lower: number;
+  rent_upper: number;
+  [key: string]: unknown;
+}
+
+interface ReportSummary {
+  id: number;
+  public_id: string;
+  property_id: number | null;
+  property_name: string;
+  generated_at: string;
+}
+
 type Scenario = "low" | "mid" | "high";
 
 // ── Formatters ───────────────────────────────────────────────────────────────
@@ -64,6 +81,13 @@ type Scenario = "low" | "mid" | "high";
 const usd = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const pct = (n: number) => `${n.toFixed(2)}%`;
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit",
+  });
+}
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -113,6 +137,46 @@ function exportCSV(rows: YearRow[], scenario: Scenario, address: string) {
   URL.revokeObjectURL(url);
 }
 
+// ── Chart capture (returns base64 data URL) ──────────────────────────────────
+
+function captureChartToDataUrl(chartEl: HTMLDivElement): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const allSvgs = Array.from(chartEl.querySelectorAll("svg"));
+    const mainSvg = allSvgs.reduce<SVGSVGElement | null>((best, svg) => {
+      const r = svg.getBoundingClientRect();
+      const bestR = best?.getBoundingClientRect();
+      return !best || r.width * r.height > (bestR?.width ?? 0) * (bestR?.height ?? 0)
+        ? svg as SVGSVGElement : best;
+    }, null);
+    if (!mainSvg) { reject(new Error("No chart SVG found")); return; }
+
+    const { width, height } = mainSvg.getBoundingClientRect();
+    const clone = mainSvg.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute("width", String(width));
+    clone.setAttribute("height", String(height));
+
+    const url = URL.createObjectURL(
+      new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" })
+    );
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#27272a";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Chart image failed to load")); };
+    img.src = url;
+  });
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function AnalysisPage() {
@@ -120,17 +184,28 @@ export default function AnalysisPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<AnalysisData | null>(null);
+  const [property, setProperty] = useState<PropertyData | null>(null);
   const [address, setAddress] = useState("Property");
   const [error, setError] = useState("");
   const [scenario, setScenario] = useState<Scenario>("mid");
   const chartRef = useRef<HTMLDivElement>(null);
 
+  // Report state
+  const [reports, setReports] = useState<ReportSummary[]>([]);
+  const [reportCount, setReportCount] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [redownloading, setRedownloading] = useState<Set<string>>(new Set());
+  const [reportError, setReportError] = useState("");
+
   useEffect(() => {
     if (!token || !id) return;
-    // fetch property address for display + export naming
+
     fetchWithAuth(`/properties/${id}`)
       .then((r) => r.json())
-      .then((p) => setAddress(`${p.address_street}, ${p.address_city}`));
+      .then((p) => {
+        setProperty(p);
+        setAddress(`${p.address_street}, ${p.address_city}`);
+      });
 
     fetchWithAuth(`/properties/${id}/analysis`)
       .then((r) => r.json())
@@ -139,53 +214,94 @@ export default function AnalysisPage() {
         setData(d);
       })
       .catch(() => setError("Failed to load analysis."));
+
+    fetchWithAuth(`/properties/${id}/reports`)
+      .then((r) => r.json())
+      .then((d) => setReports(Array.isArray(d) ? d : []));
+
+    fetchWithAuth("/reports/count")
+      .then((r) => r.json())
+      .then((d) => setReportCount(d));
   }, [token, id]);
+
+  // ── PDF download helper ────────────────────────────────────────────────────
+
+  async function triggerPDFDownload(snapshot: ReportSnapshot, reportId: string, generatedAt: string) {
+    const chartUrl = chartRef.current
+      ? await captureChartToDataUrl(chartRef.current)
+      : "";
+
+    const [{ pdf }, { ReportDocument }, React] = await Promise.all([
+      import("@react-pdf/renderer"),
+      import("@/components/ReportPDF"),
+      import("react"),
+    ]);
+
+    const doc = React.createElement(ReportDocument, { snapshot, chartImageUrl: chartUrl, reportId, generatedAt });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const blob = await pdf(doc as any).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rei-report-${reportId}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Generate new report ────────────────────────────────────────────────────
+
+  async function handleGenerateReport() {
+    if (!token || !id) return;
+    setGeneratingReport(true);
+    setReportError("");
+    try {
+      const res = await fetchWithAuth(`/properties/${id}/report`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json();
+        setReportError(body.detail ?? "Failed to generate report.");
+        return;
+      }
+      const { report, remaining } = await res.json();
+      setReports((prev) => [report, ...prev]);
+      setReportCount((prev) => prev ? { ...prev, used: prev.used + 1, remaining } : null);
+      await triggerPDFDownload(report.snapshot as ReportSnapshot, report.public_id, fmtDate(report.generated_at));
+    } catch {
+      setReportError("Failed to generate report.");
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
+  // ── Re-download existing report ───────────────────────────────────────────
+
+  async function handleRedownload(publicId: string, generatedAt: string) {
+    setRedownloading((prev) => new Set(prev).add(publicId));
+    setReportError("");
+    try {
+      const res = await fetchWithAuth(`/reports/${publicId}`);
+      if (!res.ok) { setReportError("Could not fetch report."); return; }
+      const report = await res.json();
+      await triggerPDFDownload(report.snapshot as ReportSnapshot, publicId, fmtDate(generatedAt));
+    } catch {
+      setReportError("Failed to download report.");
+    } finally {
+      setRedownloading((prev) => { const s = new Set(prev); s.delete(publicId); return s; });
+    }
+  }
+
+  // ── Chart export (JPG, unchanged) ─────────────────────────────────────────
 
   function exportChart() {
     if (!chartRef.current) return;
-
-    // Recharts renders multiple SVGs (legend icons, etc.) — find the largest one by area
-    const allSvgs = Array.from(chartRef.current.querySelectorAll("svg"));
-    const mainSvg = allSvgs.reduce<SVGSVGElement | null>((best, svg) => {
-      const r = svg.getBoundingClientRect();
-      const bestR = best?.getBoundingClientRect();
-      return !best || r.width * r.height > (bestR?.width ?? 0) * (bestR?.height ?? 0)
-        ? svg as SVGSVGElement
-        : best;
-    }, null);
-    if (!mainSvg) return;
-
-    // getBoundingClientRect gives the true rendered size; SVG clientWidth is often 0
-    const { width, height } = mainSvg.getBoundingClientRect();
-
-    // Clone and stamp explicit dimensions so the browser can draw it onto a canvas
-    const clone = mainSvg.cloneNode(true) as SVGSVGElement;
-    clone.setAttribute("width", String(width));
-    clone.setAttribute("height", String(height));
-
-    const url = URL.createObjectURL(
-      new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" })
-    );
-
-    const img = new Image();
-    img.onload = () => {
-      const scale = 2;
-      const canvas = document.createElement("canvas");
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0);
+    captureChartToDataUrl(chartRef.current).then((dataUrl) => {
       const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/jpeg", 0.95);
+      a.href = dataUrl;
       a.download = `${address.replace(/\s+/g, "_")}_${scenario}_chart.jpg`;
       a.click();
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
+    });
   }
+
+  // ── Derived ───────────────────────────────────────────────────────────────
 
   const projections = data
     ? (scenario === "low" ? data.projections_low
@@ -199,6 +315,21 @@ export default function AnalysisPage() {
     high: data?.summary_high ?? null,
   };
 
+  // Detect if property changed since most recent report
+  const latestReport = reports[0] ?? null;
+  const paramsChanged = latestReport && property && (() => {
+    const snap = (latestReport as ReportSummary & { snapshot?: { property?: PropertyData } });
+    if (!snap) return false;
+    const sp = (snap as unknown as { snapshot: { property: PropertyData } }).snapshot?.property;
+    if (!sp) return false;
+    return (
+      sp.purchase_price !== property.purchase_price ||
+      sp.annual_interest_rate !== property.annual_interest_rate ||
+      sp.rent_lower !== property.rent_lower ||
+      sp.rent_upper !== property.rent_upper
+    );
+  })();
+
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-900">
       <p className="text-red-400">{error}</p>
@@ -210,6 +341,8 @@ export default function AnalysisPage() {
       <p className="text-zinc-500 text-sm">Running analysis…</p>
     </div>
   );
+
+  const atReportLimit = reportCount !== null && reportCount.remaining <= 0;
 
   return (
     <div className="min-h-screen bg-zinc-900">
@@ -226,6 +359,76 @@ export default function AnalysisPage() {
           <h1 className="text-2xl font-semibold text-zinc-100">{address}</h1>
           <p className="text-sm text-zinc-400 mt-1">Rental investment analysis · 30-year projection</p>
         </div>
+
+        {/* ── Reports section ─────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">PDF Reports</h2>
+            {reportCount && (
+              <span className="text-xs text-zinc-500">
+                {reportCount.used} / {reportCount.limit} lifetime reports used
+              </span>
+            )}
+          </div>
+
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 space-y-3">
+            {/* Generate button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleGenerateReport}
+                disabled={generatingReport || atReportLimit}
+                className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+              >
+                {generatingReport
+                  ? "Generating…"
+                  : atReportLimit
+                  ? "No reports remaining"
+                  : `Generate New Report (${reportCount?.remaining ?? "…"} remaining)`}
+              </button>
+              {atReportLimit && (
+                <p className="text-xs text-zinc-500">Lifetime limit of {reportCount?.limit} reached.</p>
+              )}
+            </div>
+
+            {reportError && (
+              <p className="text-xs text-red-400">{reportError}</p>
+            )}
+
+            {/* Changed-params notice */}
+            {paramsChanged && latestReport && (
+              <div className="flex items-start gap-2 bg-amber-950 border border-amber-800 rounded-lg px-3 py-2">
+                <span className="text-amber-400 text-sm">⚠</span>
+                <p className="text-xs text-amber-300">
+                  Key parameters appear to have changed since the most recent report ({fmtDate(latestReport.generated_at)}).
+                  Re-downloading will use the original snapshotted data.
+                </p>
+              </div>
+            )}
+
+            {/* Existing reports list */}
+            {reports.length === 0 ? (
+              <p className="text-xs text-zinc-500">No reports generated for this property yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {reports.map((r) => (
+                  <div key={r.public_id} className="flex items-center justify-between bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2">
+                    <div>
+                      <span className="text-sm font-mono font-medium text-zinc-200">{r.public_id}</span>
+                      <span className="text-xs text-zinc-500 ml-3">{fmtDate(r.generated_at)}</span>
+                    </div>
+                    <button
+                      onClick={() => handleRedownload(r.public_id, r.generated_at)}
+                      disabled={redownloading.has(r.public_id)}
+                      className="text-xs px-3 py-1 border border-zinc-600 rounded-lg text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                    >
+                      {redownloading.has(r.public_id) ? "Downloading…" : "↓ Re-download"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* Summary metrics */}
         <section>
@@ -274,7 +477,6 @@ export default function AnalysisPage() {
             </table>
           </div>
 
-          {/* Scenario table term explanations */}
           <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-4 space-y-2 text-sm text-zinc-300">
             <p><span className="font-medium text-zinc-100">Monthly CF —</span> Rent minus all monthly expenses (mortgage, tax, insurance, HOA, management, maintenance). Positive means cash in your pocket each month; negative means you are subsidizing the property out of pocket.</p>
             <p><span className="font-medium text-zinc-100">CoC Return —</span> Your Year 1 net cash flow as a percentage of your total upfront cash (down payment + closing costs + initial repairs). A 6% CoC means you earn 6 cents per year for every dollar you put in on day one.</p>
@@ -328,7 +530,6 @@ export default function AnalysisPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Chart legend explanations */}
           <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-4 space-y-3">
             <p className="text-sm font-semibold text-zinc-200">The chart answers: does this property beat just investing in the market?</p>
             <div className="space-y-2 text-sm text-zinc-300">
