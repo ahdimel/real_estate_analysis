@@ -37,7 +37,7 @@ export const EMPTY_FORM = {
   property_management_annual: "0",
   vacancy_days_annual: "30",
   maintenance_annual: "2500",
-  insurance_annual: "",
+  insurance_annual: "2000",
   rent_increase_pct: "2",
   maintenance_increase_pct: "2",
   appreciation_rate_pct: "3",

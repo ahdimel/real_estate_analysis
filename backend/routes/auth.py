@@ -18,7 +18,7 @@ from backend.security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-USER_CAP = 100
+USER_CAP = 500
 CODE_TTL_MINUTES = 15
 RESEND_COOLDOWN_SECONDS = 60
 

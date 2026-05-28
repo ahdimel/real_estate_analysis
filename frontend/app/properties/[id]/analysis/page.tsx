@@ -64,7 +64,6 @@ type Scenario = "low" | "mid" | "high";
 const usd = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const pct = (n: number) => `${n.toFixed(2)}%`;
-const num = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -235,8 +234,6 @@ export default function AnalysisPage() {
             <MetricCard label="Initial Investment" value={usd(data.initial_investment)} />
             <MetricCard label="Loan Amount" value={usd(data.loan_amount)} />
             <MetricCard label="Monthly Mortgage" value={usd(data.monthly_mortgage)} />
-            <MetricCard label="Cap Rate (mid)" value={pct(data.cap_rate_mid)} />
-            <MetricCard label="GRM (mid)" value={num(data.grm_mid)} />
           </div>
         </section>
 
@@ -275,6 +272,13 @@ export default function AnalysisPage() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Scenario table term explanations */}
+          <div className="mt-4 bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-4 space-y-2 text-sm text-zinc-300">
+            <p><span className="font-medium text-zinc-100">Monthly CF —</span> Rent minus all monthly expenses (mortgage, tax, insurance, HOA, management, maintenance). Positive means cash in your pocket each month; negative means you are subsidizing the property out of pocket.</p>
+            <p><span className="font-medium text-zinc-100">CoC Return —</span> Your Year 1 net cash flow as a percentage of your total upfront cash (down payment + closing costs + initial repairs). A 6% CoC means you earn 6 cents per year for every dollar you put in on day one.</p>
+            <p><span className="font-medium text-zinc-100">Break-even —</span> The year your cumulative real estate value first exceeds what the same money would have grown to in an S&P 500 index fund. Before that year the stock investment is ahead; after it, real estate wins.</p>
           </div>
         </section>
 

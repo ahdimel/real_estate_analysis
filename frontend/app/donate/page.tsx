@@ -17,7 +17,7 @@ export default function DonatePage() {
 
         <p className="text-sm leading-relaxed">
           REI Analyzer is free to use. If it helped you make a more confident real estate decision,
-          consider buying us a coffee — a suggested amount is <span className="text-zinc-100 font-medium">$10</span> (about 3 coffees).
+          consider buying us a coffee — a suggested amount is <span className="text-zinc-100 font-medium">$10</span>.
         </p>
 
         <a

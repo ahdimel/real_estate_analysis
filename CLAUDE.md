@@ -107,7 +107,7 @@ REI/
 - Users never touch the `users` table until code is confirmed
 - 60-second cooldown per email address (prevents spam)
 - 15-minute code TTL
-- **100-user cap** enforced at verify time (403 if full) — `USER_CAP = 100` in `routes/auth.py`
+- **500-user cap** enforced at verify time (403 if full) — `USER_CAP = 500` in `routes/auth.py`
 - `passlib` was removed — use `bcrypt` directly. passlib 1.7.4 is broken with bcrypt 5.x.
 - React 19: use `React.SyntheticEvent`, not `React.FormEvent` (deprecated in React 19)
 
@@ -151,9 +151,9 @@ re_value           = equity + cumulative_cash_flow            ← notional net i
 cumulative_roi_pct = (re_value − initial_investment) / initial_investment × 100
                      (0% = breakeven, negative = behind, positive = ahead)
 stock_value        = initial_investment × (1 + market_cagr) ^ year
-cap_rate_mid       = NOI_y1_mid / purchase_price × 100
+cap_rate_mid       = NOI_y1_mid / purchase_price × 100  ← still returned by API but intentionally not displayed in the UI
                      where NOI excludes mortgage but includes tax, HOA, management, maintenance, insurance
-grm_mid            = purchase_price / (rent_mid × 12)
+grm_mid            = purchase_price / (rent_mid × 12)   ← still returned by API but intentionally not displayed in the UI
 ```
 
 PMI drops off when `loan_balance ≤ 0.80 × purchase_price`.
