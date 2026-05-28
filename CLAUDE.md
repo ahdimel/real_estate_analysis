@@ -297,11 +297,20 @@ The JPG export in `frontend/app/properties/[id]/analysis/page.tsx` extracts the 
 ## Analysis Credits & PDF Export
 
 ### Credit model
-**Each credit buys one analysis run.** `CREDIT_LIMIT = 10` lifetime per user (`backend/routes/reports.py`). Enforced at `POST /properties/{id}/analysis` time (429 if exceeded). Counted as `SELECT COUNT(*) FROM reports WHERE user_id = ?` — no monthly reset, no date math.
+**Each credit buys one analysis run.** Credits are lifetime (no monthly reset). Enforced at `POST /properties/{id}/analysis` time (429 if exceeded). Counted as `SELECT COUNT(*) FROM reports WHERE user_id = ?`.
 
 Spending a credit runs the analysis engine server-side, stores a snapshot of the inputs + results, and returns them to the client. PDF generation is a free, on-demand, client-side action against any stored snapshot — it never costs a credit.
 
 This model was chosen because the analysis (computation + insight) is the scarce resource, not the document format. Future pricing tiers will grant more credits rather than more PDF downloads.
+
+### Tiered plans (monetization-ready)
+`users.plan` (String, `server_default="free"`) determines each user's credit limit. The lookup lives in `PLAN_LIMITS` in `backend/routes/reports.py`:
+
+```python
+PLAN_LIMITS = {"free": 10, "pro": 50, "max": 1000}
+```
+
+`_credit_limit(plan)` resolves the limit; all three credit-check spots in `reports.py` call it against `current_user.plan`. To upgrade a user, set `user.plan = "pro"` or `"max"` — the gate responds immediately. A Stripe webhook is the expected integration point; no other code needs to change.
 
 ### Data model
 ```

@@ -21,6 +21,7 @@ class UserOut(BaseModel):
     id: int
     username: str
     email: str
+    plan: str
 
     model_config = {"from_attributes": True}
 

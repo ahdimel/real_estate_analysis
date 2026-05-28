@@ -12,6 +12,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_verified = Column(Boolean, nullable=False, default=True)
+    plan = Column(String, nullable=False, server_default="free")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     properties = relationship("Property", back_populates="user", cascade="all, delete-orphan")
