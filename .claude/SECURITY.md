@@ -64,13 +64,18 @@ Combined with username enumeration (M1), targeting a specific account is trivial
 
 ### H2 — Race condition on credit gate (TOCTOU)
 **File:** `backend/routes/reports.py:39-45`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
 Read → check → write is not atomic under PostgreSQL. Concurrent POST requests can both pass
 the `count >= limit` check before either commits, allowing a user to exceed their plan limit.
 SQLite serializes writes so this only affects production.
 
-**Fix:** Use `SELECT ... FOR UPDATE` or a DB-level unique constraint + retry to serialize the check.
+**Fix:** `run_analysis` now issues `SELECT ... FOR UPDATE` on the user row at the start of
+the transaction (PostgreSQL only — SQLite serializes at the file level and raises a
+`CompileError` if `FOR UPDATE` is emitted). The lock is held until `COMMIT`, so any
+concurrent request for the same user blocks at the lock and reads the accurate post-insert
+count when it proceeds. The engine dialect is checked via `engine.dialect.name` imported
+from `backend.database`.
 
 ---
 
@@ -220,6 +225,7 @@ warn the user when fallback data is in use.
 | C2 | PRNG for verification codes | 2026-05-28 |
 | C3 | Verify code brute-force | 2026-05-28 |
 | H1 | Login brute force | 2026-05-28 |
+| H2 | TOCTOU race on credit gate — SELECT FOR UPDATE on user row | 2026-05-28 |
 | H3 | Password reset didn't invalidate JWTs (token_version) | 2026-05-28 |
 | H4 | Indefinite token refresh — logout now invalidates all tokens | 2026-05-28 |
 | H5 | Scraper cost amplification | 2026-05-28 |

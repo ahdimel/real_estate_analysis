@@ -3,7 +3,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
+from backend.database import engine, get_db
 from backend.dependencies import get_current_user
 from backend.models.property import Property
 from backend.models.report import Report, generate_public_id
@@ -36,8 +36,19 @@ def run_analysis(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    limit = _credit_limit(current_user.plan)
-    count = _count_reports(db, current_user.id)
+    # Lock the user row for the duration of this transaction so that concurrent
+    # requests for the same user serialize here. Without this, two simultaneous
+    # POSTs can both read the same count, both pass the limit check, and both
+    # insert a report — exceeding the plan limit (TOCTOU). FOR UPDATE is
+    # PostgreSQL-only; SQLite serializes writes at the file level, so it is safe
+    # to skip the lock there.
+    user_q = db.query(User).filter(User.id == current_user.id)
+    if engine.dialect.name == "postgresql":
+        user_q = user_q.with_for_update()
+    user = user_q.first()
+
+    limit = _credit_limit(user.plan)
+    count = _count_reports(db, user.id)
     if count >= limit:
         raise HTTPException(
             status_code=429,
@@ -46,7 +57,7 @@ def run_analysis(
 
     prop = db.query(Property).filter(
         Property.id == property_id,
-        Property.user_id == current_user.id,
+        Property.user_id == user.id,
     ).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -67,7 +78,7 @@ def run_analysis(
 
     report = Report(
         public_id=public_id,
-        user_id=current_user.id,
+        user_id=user.id,
         property_id=property_id,
         property_name=property_name,
         snapshot={"property": prop_data, "analysis": analysis_data},

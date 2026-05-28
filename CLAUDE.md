@@ -420,11 +420,10 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ## Security
 
 See `.claude/SECURITY.md` for the full list of security findings (18 items, prioritised by severity).
-**14 of 18 resolved.** 4 remain open:
+**15 of 18 resolved.** 3 remain open:
 
 | ID | Finding | Priority |
 |---|---|---|
-| H2 | TOCTOU race on credit gate (`SELECT … FOR UPDATE` needed) | High |
 | M2 | JWT stored in `localStorage` — full XSS exposure (known design decision) | Medium |
 | L1 | `/market/rate` and `/market/mortgage-rate` unauthenticated | Low |
 | L5 | Freddie Mac fallback rate not disclosed to client | Low |
