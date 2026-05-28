@@ -40,10 +40,11 @@ REI/
 │   ├── dependencies.py             # get_current_user (JWT decode → User)
 │   ├── email.py                    # send_verification_email via Resend
 │   ├── models/
-│   │   ├── __init__.py             # exports User, Property, AppSetting, EmailVerification
+│   │   ├── __init__.py             # exports User, Property, AppSetting, EmailVerification, PasswordReset
 │   │   ├── user.py                 # User table (id, username, email, hashed_password, is_verified)
 │   │   ├── property.py             # Property table (all intake fields)
 │   │   ├── email_verification.py   # Pending registrations (email unique, expires_at)
+│   │   ├── password_reset.py       # Password reset tokens (token, email, expires_at — 1hr TTL)
 │   │   └── settings.py             # AppSetting key/value table — caches mortgage rate
 │   ├── schemas/
 │   │   ├── __init__.py             # (empty)
@@ -51,7 +52,8 @@ REI/
 │   │   ├── property.py             # PropertyCreate, PropertyUpdate, PropertyOut
 │   │   └── analysis.py             # YearProjectionOut, AnalysisResultOut, ScenarioSummaryOut
 │   ├── routes/
-│   │   ├── auth.py                 # POST /auth/register, /auth/verify, /auth/login
+│   │   ├── auth.py                 # POST /auth/register, /auth/verify, /auth/login,
+│   │   │                           #   /auth/forgot-password, /auth/reset-password, /auth/refresh
 │   │   ├── properties.py           # CRUD /properties — user-scoped, 10-property cap
 │   │   ├── analysis.py             # GET /properties/{id}/analysis
 │   │   ├── market.py               # GET /market/rate, GET /market/mortgage-rate
@@ -70,17 +72,23 @@ REI/
 │       └── test_market.py          # Market rate endpoint
 └── frontend/
     ├── railway.toml                # FRONTEND: startCommand="node_modules/.bin/next start -p $PORT"
+    ├── package.json                # version field is the canonical app version (currently 0.2.0)
     ├── .env.local                  # NEXT_PUBLIC_API_URL=http://localhost:8000 (local only)
     ├── lib/api.ts                  # API_BASE + apiFetch() helper (see Auth section below)
     ├── context/AuthContext.tsx     # AuthProvider + useAuth() hook
     ├── components/
+    │   ├── Footer.tsx              # Shared footer: Terms, Donate, version — rendered in layout
     │   └── PropertyForm.tsx        # Shared intake form with Zillow scrape button + tooltips
     └── app/
-        ├── layout.tsx              # Root layout — wraps everything in <AuthProvider>
+        ├── layout.tsx              # Root layout — wraps everything in <AuthProvider> + <Footer>
         ├── page.tsx                # Landing: Sign in / Create account buttons
-        ├── login/page.tsx          # Login form
+        ├── login/page.tsx          # Login form (includes Forgot password? link)
         ├── register/page.tsx       # Two-step registration (form → verify code)
         ├── dashboard/page.tsx      # Property list (10 max), delete, link to analysis
+        ├── terms/page.tsx          # Terms & Conditions
+        ├── donate/page.tsx         # Donation page — Ko-fi link (cash); Bitcoin TBD
+        ├── forgot-password/page.tsx # Email entry form — triggers reset email
+        ├── reset-password/page.tsx  # Token-based new password form (?token= from email link)
         └── properties/
             ├── new/page.tsx        # New property — renders <PropertyForm>
             ├── [id]/edit/page.tsx  # Edit property — renders <PropertyForm> prefilled
@@ -102,6 +110,14 @@ REI/
 - **100-user cap** enforced at verify time (403 if full) — `USER_CAP = 100` in `routes/auth.py`
 - `passlib` was removed — use `bcrypt` directly. passlib 1.7.4 is broken with bcrypt 5.x.
 - React 19: use `React.SyntheticEvent`, not `React.FormEvent` (deprecated in React 19)
+
+### Auth — Forgot password flow
+- `POST /auth/forgot-password` — takes `email`, always returns 202 (never reveals whether email is registered)
+- If the email exists, generates a `secrets.token_urlsafe(32)` token, stores it in `password_resets` table with 1hr TTL, sends reset email via Resend with link `{FRONTEND_URL}/reset-password?token=<token>`
+- Reset email includes the user's **username** in case they forgot that too
+- `POST /auth/reset-password` — takes `token` + `new_password`, validates TTL, updates `hashed_password`, deletes the token row
+- One pending reset per email (old row replaced on repeat requests)
+- Frontend: `forgot-password/page.tsx` → email form; `reset-password/page.tsx` → reads `?token=` from URL, redirects to `/login` on success
 
 ### Frontend auth — localStorage + React context
 JWT is stored in `localStorage` under the key `rei_token`. `AuthContext.tsx` reads it on mount, exposes `{ token, username, login, logout }` via `useAuth()`. `login()` stores the token and redirects to `/dashboard`. `logout()` clears it and redirects to `/login`.
@@ -188,8 +204,11 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 RESEND_API_KEY=re_...                 # Resend email API key
 SCRAPER_API_KEY=...                   # ScraperAPI key — omit locally to use curl_cffi mode
-DATABASE_URL=...                      # Injected by Railway PostgreSQL addon; absent = SQLite
+DATABASE_URL=...                      # Must be set explicitly in Railway backend service (NOT auto-injected)
+                                      # Use internal URL: postgresql://postgres:<pw>@postgres.railway.internal:5432/railway
+                                      # Absent locally = SQLite fallback (fine); absent in prod = RuntimeError at startup
 ALLOWED_ORIGINS=https://frontend-production-45bb.up.railway.app,https://reianalyzer.online,https://www.reianalyzer.online
+FRONTEND_URL=https://reianalyzer.online  # Base URL for password reset links in emails; defaults to http://localhost:3000
 ```
 
 ### Frontend
@@ -317,16 +336,19 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ## Pending / Next Steps
 
-The following production-hardening improvement was identified and scoped but not yet implemented.
-A future agent can pick up this item — the context here is enough to start.
+The following production-hardening improvements are identified and scoped but not yet implemented.
+A future agent can pick up any of these items — the context here is enough to start.
 
-### 5. Rate limiting on expensive endpoints
+### Rate limiting on expensive endpoints
 Two endpoints have no per-user throttle:
 - `POST /scraper/zillow` — hits ScraperAPI, which costs money per request
 - `GET /properties/{id}/analysis` — runs a full 30-year 3-scenario projection on every call
 
 Add `slowapi` (starlette-native, ~10-line integration) with a per-IP or per-user limit.
 Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
+
+### Bitcoin donations
+`/donate` page exists with Ko-fi cash donation link. Bitcoin address placeholder is intentionally omitted — a static address is a privacy risk (full transaction history visible on-chain). Research BTCPay Server or a rotating address scheme before adding.
 
 ---
 
@@ -344,4 +366,6 @@ Reasonable starting points: scraper 5 req/min, analysis 30 req/min.
 - **Adding a new NOT NULL column without a default**: add it as nullable first, backfill values, then tighten to NOT NULL in a second migration. Doing it in one step will fail on any table that already has rows.
 - **`railway run` does not inject `DATABASE_URL` locally**: the PostgreSQL addon URL is only reachable inside Railway's network. To run Alembic or psycopg2 against production from your laptop, get `DATABASE_PUBLIC_URL` from `railway variables --service Postgres` and pass it as `DATABASE_URL=<value> alembic ...`.
 - **Required env vars at startup**: `SECRET_KEY` and `RESEND_API_KEY` must be set. The app raises `RuntimeError` on startup if either is missing — this is intentional. Set them in `.env` locally and in Railway environment variables for production.
-- **Health check pings the DB**: `GET /health` now runs `SELECT 1`. A 503 response means the DB is unreachable, not just that the process is down.
+- **`DATABASE_URL` must be set in the Railway backend service**: the PostgreSQL addon variables live in the Postgres service and are NOT automatically injected into the backend service. Without it, the backend silently falls back to ephemeral SQLite and all data is wiped on every deploy. If `RAILWAY_ENVIRONMENT` is set and `DATABASE_URL` is absent, the app now raises `RuntimeError` at startup. Use the internal URL: `postgresql://postgres:<password>@postgres.railway.internal:5432/railway`.
+- **Health check verifies schema**: `GET /health` runs `SELECT 1 FROM users LIMIT 1`. A 503 means either the DB is unreachable or the schema is missing (e.g. migrations never ran). This catches a misconfigured DB before Railway routes any traffic to the service.
+- **`alembic stamp` stamps version only — it does not create tables**: running `alembic stamp head` on an empty DB records the version without executing any migration SQL. If you stamp and then deploy, Alembic will skip all stamped migrations and only run newer ones, leaving the core tables uncreated. Only stamp a DB that already has the correct schema in place.

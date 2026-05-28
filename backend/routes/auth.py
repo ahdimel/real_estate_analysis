@@ -1,4 +1,6 @@
+import os
 import random
+import secrets
 import string
 from datetime import datetime, timedelta, timezone
 
@@ -7,10 +9,11 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.dependencies import get_current_user
-from backend.email import send_verification_email
+from backend.email import send_verification_email, send_password_reset_email
 from backend.models.email_verification import EmailVerification
+from backend.models.password_reset import PasswordReset
 from backend.models.user import User
-from backend.schemas.user import Token, UserLogin, UserOut, UserRegister, VerifyCode
+from backend.schemas.user import ForgotPassword, ResetPassword, Token, UserLogin, UserRegister, VerifyCode
 from backend.security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -93,6 +96,65 @@ def verify(payload: VerifyCode, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": str(user.id), "username": user.username})
     return {"access_token": token, "token_type": "bearer"}
+
+
+RESET_TOKEN_TTL_MINUTES = 60
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+
+@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+def forgot_password(payload: ForgotPassword, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user:
+        existing = db.query(PasswordReset).filter(PasswordReset.email == payload.email).first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+
+        token = secrets.token_urlsafe(32)
+        reset = PasswordReset(
+            email=payload.email,
+            token=token,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
+        )
+        db.add(reset)
+        db.commit()
+
+        reset_url = f"{FRONTEND_URL}/reset-password?token={token}"
+        try:
+            send_password_reset_email(payload.email, reset_url, user.username)
+        except Exception:
+            db.delete(reset)
+            db.commit()
+            raise HTTPException(status_code=500, detail="Failed to send reset email. Please try again.")
+
+    # Always 202 — don't reveal whether the email exists
+    return {"detail": "If that email is registered, a reset link has been sent."}
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(payload: ResetPassword, db: Session = Depends(get_db)):
+    reset = db.query(PasswordReset).filter(PasswordReset.token == payload.token).first()
+
+    if not reset:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    if datetime.now(timezone.utc) > reset.expires_at.replace(tzinfo=timezone.utc):
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Reset link has expired. Please request a new one.")
+
+    user = db.query(User).filter(User.email == reset.email).first()
+    if not user:
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user.hashed_password = hash_password(payload.new_password)
+    db.delete(reset)
+    db.commit()
+
+    return {"detail": "Password updated successfully. You can now log in."}
 
 
 @router.post("/refresh", response_model=Token)

@@ -26,6 +26,18 @@ async def lifespan(_app: FastAPI):
             f"Required environment variables are not set: {', '.join(missing)}. "
             "Set them in .env (local) or Railway environment variables (prod)."
         )
+    # In production (PostgreSQL), DATABASE_URL must be explicitly set.
+    # Absence means the app would silently fall back to ephemeral SQLite and
+    # lose all data on every deploy.
+    db_url = os.getenv("DATABASE_URL", "")
+    is_production = bool(os.getenv("RAILWAY_ENVIRONMENT"))
+    if is_production and not db_url:
+        raise RuntimeError(
+            "DATABASE_URL is not set in production. "
+            "Link the PostgreSQL addon to the backend service in Railway."
+        )
+    if not db_url:
+        logger.warning("DATABASE_URL not set — falling back to local SQLite.")
     logger.info("Environment validated. All required variables present.")
     yield
 
@@ -55,12 +67,14 @@ def root():
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
     """
-    Shallow liveness + DB connectivity check.
-    Railway uses this path for its healthcheck — a 503 here triggers a restart.
+    Liveness + schema check. Railway polls this — a 503 triggers a restart.
+    Verifies both DB connectivity and that the core schema is in place so a
+    misconfigured DB (e.g. missing DATABASE_URL) fails fast instead of
+    silently serving an empty SQLite instance.
     """
     try:
-        db.execute(text("SELECT 1"))
+        db.execute(text("SELECT 1 FROM users LIMIT 1"))
     except Exception as exc:
-        logger.error("Health check DB ping failed: %s", exc)
-        raise HTTPException(status_code=503, detail="Database unavailable")
+        logger.error("Health check failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Database unavailable or schema missing")
     return {"status": "ok"}

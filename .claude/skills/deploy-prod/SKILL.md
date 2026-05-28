@@ -18,13 +18,30 @@ railway whoami
 ```
 If not logged in: `railway login`
 
+**Confirm DATABASE_URL is set in the backend service** (critical — absence = ephemeral SQLite, data loss on every deploy):
+```bash
+railway variables --service backend | grep DATABASE_URL
+```
+If missing, add it in the Railway dashboard → backend service → Variables:
+```
+DATABASE_URL=postgresql://postgres:<password>@postgres.railway.internal:5432/railway
+```
+Get the password from `railway variables --service Postgres | grep PGPASSWORD`.
+
 ---
 
 ## ONE-TIME: Stamp the existing production DB (first Alembic-aware deploy only)
 
-**This step is only needed once** — the very first time you deploy after Alembic was added.
-Without it, `alembic upgrade head` will attempt to CREATE TABLE on tables that already exist
-and crash before the app starts.
+**This step is only needed once** — the very first time you deploy after Alembic was added,
+and ONLY if the DB already has the schema in place (created by a prior `create_all()` call or
+manual SQL). Without it, `alembic upgrade head` will attempt to CREATE TABLE on tables that
+already exist and crash before the app starts.
+
+> **WARNING**: `alembic stamp` records a version number WITHOUT running any migration SQL.
+> If you stamp an **empty** DB, Alembic will think the initial schema is already applied and
+> skip creating `users`, `properties`, etc. Only stamp a DB that already has the correct tables.
+> If the DB is empty, do NOT stamp — just run `alembic upgrade head` directly and it will
+> create everything from scratch.
 
 After this stamp, every future deploy runs migrations automatically via the Procfile.
 You will never need to run this again.
@@ -64,6 +81,14 @@ Review the generated file in `alembic/versions/`, then deploy. The Procfile runs
 **For columns with NOT NULL and no default:** add the column as nullable first, backfill,
 then tighten to NOT NULL in a second migration — otherwise `alembic upgrade head` will fail
 on rows that already exist.
+
+---
+
+## Bumping the version (optional, before deploying)
+
+The version displayed in the footer comes from two places — update both together:
+1. `"version"` field in `frontend/package.json` (e.g. `"0.2.0"` → `"0.3.0"`)
+2. `BUILD_DATE` constant in `frontend/components/Footer.tsx`
 
 ---
 
