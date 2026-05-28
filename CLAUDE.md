@@ -336,6 +336,11 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ## Pending / Next Steps
 
+### Standardize on PostgreSQL locally (when scaling up)
+Currently SQLite is used locally and PostgreSQL in production. This was the right call while prototyping rapidly, but as the app grows it's worth standardizing on Postgres everywhere via Docker Compose — migrations and type behavior would then be validated locally against the same engine that runs in production. Not urgent while the schema stays simple, but worth doing before any complex queries or migrations are introduced.
+
+
+
 The following production-hardening improvements are identified and scoped but not yet implemented.
 A future agent can pick up any of these items — the context here is enough to start.
 
