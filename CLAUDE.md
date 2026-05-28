@@ -418,9 +418,9 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ### PDF polish (visual / layout)
 The PDF template in `frontend/components/ReportPDF.tsx` has a few remaining refinement items:
 
-- **Chart re-download quality**: when re-downloading from the dashboard (no active chart in DOM), `chartImageUrl` is empty and page 2 renders blank. Options: (a) skip page 2 on dashboard re-downloads and adjust total page count, or (b) cache the last-captured chart data URL in the report snapshot.
+- **Chart re-download quality**: when re-downloading from the dashboard (no active chart in DOM), page 2 (chart) is skipped entirely (`chartImageUrl === ""` guard in `ReportPDF.tsx`). **This is a known limitation** — re-downloaded PDFs are 4 pages instead of 5 and have no chart. The proper fix is to cache the chart data URL in the report snapshot at run time, so re-downloads can include the original chart.
 - **Custom font**: currently uses Helvetica (built-in). Registering Inter or a similar sans-serif via `Font.register()` would improve visual fidelity.
-- **MLS ID / source URL**: include in the property details section if present on the snapshot.
+- ~~**MLS ID / source URL**: include in the property details section if present on the snapshot.~~ ✓ MLS ID is now shown in the Property Details section of the PDF (conditionally, when non-null/non-empty).
 - **PDF generation loading state**: currently the button text changes to "Generating…". A full-page overlay or progress indicator would be more informative for slow connections.
 
 ### Standardize on PostgreSQL locally (when scaling up)

@@ -9,6 +9,7 @@ interface PropertySnapshot {
   address_city: string;
   address_state: string;
   address_zip: string;
+  mls_id: string | null;
   property_type: string;
   bedrooms: number | null;
   bathrooms: number | null;
@@ -324,6 +325,7 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
         <View style={s.row2}>
           <View style={s.col}>
             <InputRow label="Type" value={TYPE_LABELS[p.property_type] ?? p.property_type} />
+            {p.mls_id != null && p.mls_id !== "" && <InputRow label="MLS ID" value={p.mls_id} />}
             {p.bedrooms != null && <InputRow label="Bedrooms" value={String(p.bedrooms)} />}
             {p.bathrooms != null && <InputRow label="Bathrooms" value={String(p.bathrooms)} />}
             {p.square_feet != null && <InputRow label="Square Feet" value={p.square_feet.toLocaleString()} />}
@@ -390,18 +392,20 @@ export function ReportDocument({ snapshot, chartImageUrl, reportId, generatedAt 
         <Footer reportId={reportId} />
       </Page>
 
-      {/* ── Page 2: Chart ──────────────────────────────────────────────── */}
-      <Page size="A4" orientation="landscape" style={s.pageLand}>
-        <View style={s.header}>
-          <Text style={s.headerTitle}>30-Year Projection Chart</Text>
-          <Text style={s.headerId}>{reportId}</Text>
-        </View>
-        <Image src={chartImageUrl} style={s.chartImg} />
-        <Text style={s.chartNote}>
-          Chart reflects the scenario active at time of download. Green = RE Value, Amber = Cumulative ROI %, Purple = Alt. Investment ({a.market_cagr_pct}% CAGR).
-        </Text>
-        <Footer reportId={reportId} />
-      </Page>
+      {/* ── Page 2: Chart (omitted on re-downloads — chart is not in DOM so no image can be captured) ── */}
+      {chartImageUrl !== "" && (
+        <Page size="A4" orientation="landscape" style={s.pageLand}>
+          <View style={s.header}>
+            <Text style={s.headerTitle}>30-Year Projection Chart</Text>
+            <Text style={s.headerId}>{reportId}</Text>
+          </View>
+          <Image src={chartImageUrl} style={s.chartImg} />
+          <Text style={s.chartNote}>
+            Chart reflects the scenario active at time of download. Green = RE Value, Amber = Cumulative ROI %, Purple = Alt. Investment ({a.market_cagr_pct}% CAGR).
+          </Text>
+          <Footer reportId={reportId} />
+        </Page>
+      )}
 
       {/* ── Page 3: Low scenario table ─────────────────────────────────── */}
       <Page size="A4" orientation="landscape" style={s.pageLand}>
