@@ -127,12 +127,13 @@ REI/
 - `POST /auth/forgot-password` — takes `email`, always returns 202 (never reveals whether email is registered)
 - If the email exists, generates a `secrets.token_urlsafe(32)` token, stores it in `password_resets` table with 1hr TTL, sends reset email via Resend with link `{FRONTEND_URL}/reset-password?token=<token>`
 - Reset email includes the user's **username** in case they forgot that too
-- `POST /auth/reset-password` — takes `token` + `new_password`, validates TTL, updates `hashed_password`, deletes the token row
+- `POST /auth/reset-password` — takes `token` + `new_password`, validates TTL, updates `hashed_password`, increments `token_version`, deletes the token row
+- Incrementing `token_version` immediately invalidates all previously issued JWTs for that user (H3 fix)
 - One pending reset per email (old row replaced on repeat requests)
 - Frontend: `forgot-password/page.tsx` → email form; `reset-password/page.tsx` → reads `?token=` from URL, redirects to `/login` on success
 
 ### Frontend auth — localStorage + React context
-JWT is stored in `localStorage` under the key `rei_token`. `AuthContext.tsx` reads it on mount, exposes `{ token, username, login, logout }` via `useAuth()`. `login()` stores the token and redirects to `/dashboard`. `logout()` clears it and redirects to `/login`.
+JWT is stored in `localStorage` under the key `rei_token`. `AuthContext.tsx` reads it on mount, exposes `{ token, username, login, logout }` via `useAuth()`. `login()` stores the token and redirects to `/dashboard`. `logout()` fires a best-effort `POST /auth/logout` (increments `token_version` server-side to invalidate all tokens), then clears localStorage and redirects to `/login` regardless of network outcome.
 
 **All authenticated API calls must go through `apiFetch`** (not bare `fetch`). Signature:
 ```ts
@@ -457,6 +458,9 @@ Currently SQLite is used locally and PostgreSQL in production. This was the righ
 - **Two `railway.toml` files**: root `railway.toml` is for the backend; `frontend/railway.toml` is for the frontend. Do not merge or move them.
 - **10-property cap**: `PROPERTY_LIMIT = 10` in `backend/routes/properties.py`, enforced at create time with a 400 error.
 - **JWT refresh**: `POST /auth/refresh` issues a new 30-min token for any valid non-expired token. Frontend pages use `fetchWithAuth` (from `AuthContext`) instead of `apiFetch` directly — it automatically retries on 401 after a refresh attempt, then calls `logout()` if the refresh also fails.
+- **`token_version` invalidates JWTs immediately**: `users.token_version` (int, default 0) is embedded as a `"ver"` claim in every JWT. `get_current_user` rejects any token whose `ver` differs from the current DB value. Two events increment `token_version`: (1) `POST /auth/reset-password` — password change, (2) `POST /auth/logout` — explicit logout. After either event, all previously issued tokens for that user are dead instantly, including any held by an attacker.
+- **`POST /auth/logout` is a server-side operation**: it increments `token_version` in the DB, not just clears the client cookie. Do not remove or skip this call — without it, tokens stay valid until their 30-minute TTL even after the user has "logged out" on the client.
+- **`SELECT FOR UPDATE` on the credit gate**: `POST /properties/{id}/analysis` locks the user row with `SELECT ... FOR UPDATE` before counting reports (PostgreSQL only — skipped on SQLite). This prevents two concurrent requests from both passing the plan-limit check. Do not remove this lock or move the count check before it.
 - **`mortgage_term` is an enum, not a free integer**: valid values are `{10, 15, 20, 30}`. The backend rejects any other value with 422. The form renders a dropdown, not a free-text field.
 - **`annual_interest_rate` must be > 0**: `ge=0.01` on the Pydantic schema. A 0% rate would produce divide-by-zero in mortgage calculations.
 - **Adding a new NOT NULL column without a default**: add it as nullable first, backfill values, then tighten to NOT NULL in a second migration. Doing it in one step will fail on any table that already has rows.
