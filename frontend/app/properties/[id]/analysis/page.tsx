@@ -284,7 +284,7 @@ export default function AnalysisPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rei-report-${reportId}.pdf`;
+    a.download = `reia-report-${reportId}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   }
