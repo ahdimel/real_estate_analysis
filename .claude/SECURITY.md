@@ -173,9 +173,9 @@ is not `http` or `https`, blocking `javascript:` and other dangerous URI schemes
 
 ### L1 — `/market/rate` and `/market/mortgage-rate` unauthenticated
 **File:** `backend/routes/market.py`
-**Status:** 🔴 Open (low priority)
+**Status:** ✅ Fixed
 
-These endpoints are publicly accessible and can be polled to probe DB liveness.
+Both endpoints now require a valid JWT via `Depends(get_current_user)`.
 
 ---
 
@@ -207,13 +207,13 @@ parameter, keeping it out of proxy logs and Railway access logs.
 
 ### L5 — Freddie Mac CSV parsing is fragile; stale fallback rate not disclosed
 **File:** `backend/analysis/mortgage_rate.py:44`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
-CSV column parsing (`last.split(",")[1]`) is brittle. On failure, a hardcoded 6.51% rate
-is silently used and presented as current data — potentially misleading investment decisions.
-
-**Fix:** Surface a `data_source` / `is_stale` flag in the API response so the frontend can
-warn the user when fallback data is in use.
+`_fetch_from_freddie_mac()` now returns `(rate, is_fallback: bool)`. The fallback flag is
+stored in `AppSetting` alongside the rate and propagated through `get_mortgage_rate()`.
+`GET /market/mortgage-rate` now includes `"is_stale": true/false`. The label also appends
+" (estimated — live data unavailable)" when stale. `PropertyForm.tsx` reads `is_stale` and
+appends a note to the rate hint shown below the interest rate field.
 
 ---
 
@@ -236,3 +236,5 @@ warn the user when fallback data is in use.
 | L2 | OpenAPI docs public in production | 2026-05-28 |
 | L3 | Username with no length/character constraints | 2026-05-28 |
 | L4 | ScraperAPI key exposed in URL query param | 2026-05-28 |
+| L1 | Market endpoints unauthenticated | 2026-05-28 |
+| L5 | Freddie Mac fallback rate not disclosed to client | 2026-05-28 |

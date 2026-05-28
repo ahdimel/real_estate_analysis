@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -164,6 +165,7 @@ interface PropertyFormProps {
 export default function PropertyForm({
   initialValues, onSubmit, submitLabel = "Save property", onCancel,
 }: PropertyFormProps) {
+  const { token } = useAuth();
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, ...initialValues });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -172,15 +174,16 @@ export default function PropertyForm({
   const [rateHint, setRateHint] = useState("Default rate pulled from Freddie Mac's weekly average for 30-yr prime fixed-rate mortgages");
 
   useEffect(() => {
-    if (initialValues?.annual_interest_rate) return;
-    apiFetch("/market/mortgage-rate")
+    if (initialValues?.annual_interest_rate || !token) return;
+    apiFetch("/market/mortgage-rate", {}, token)
       .then((r) => r.json())
-      .then((data: { rate_pct: number; label: string }) => {
+      .then((data: { rate_pct: number; label: string; is_stale: boolean }) => {
         setForm((prev) => ({ ...prev, annual_interest_rate: String(data.rate_pct) }));
-        setRateHint(`Default pulled from Freddie Mac's weekly average for 30-yr prime fixed-rate mortgages (${data.rate_pct}%)`);
+        const staleNote = data.is_stale ? " — estimated, live data unavailable" : "";
+        setRateHint(`Default pulled from Freddie Mac's weekly average for 30-yr prime fixed-rate mortgages (${data.rate_pct}%${staleNote})`);
       })
       .catch(() => {});
-  }, []);
+  }, [token]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -194,7 +197,7 @@ export default function PropertyForm({
       const res = await apiFetch("/scraper/zillow", {
         method: "POST",
         body: JSON.stringify({ url: form.source_url.trim() }),
-      });
+      }, token ?? undefined);
       const json = await res.json();
       if (!res.ok) {
         setScrapeResult({ filled: [], error: json.detail ?? "Scrape failed" });

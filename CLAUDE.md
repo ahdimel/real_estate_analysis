@@ -421,13 +421,11 @@ If you add another domain, append it comma-separated here and redeploy the backe
 ## Security
 
 See `.claude/SECURITY.md` for the full list of security findings (18 items, prioritised by severity).
-**15 of 18 resolved.** 3 remain open:
+**17 of 18 resolved.** 1 remains open:
 
 | ID | Finding | Priority |
 |---|---|---|
 | M2 | JWT stored in `localStorage` — full XSS exposure (known design decision) | Medium |
-| L1 | `/market/rate` and `/market/mortgage-rate` unauthenticated | Low |
-| L5 | Freddie Mac fallback rate not disclosed to client | Low |
 
 ---
 
