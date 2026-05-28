@@ -67,11 +67,12 @@ REI/
 │   │   └── zillow.py               # scrape_zillow(url) → form-field dict
 │   ├── tests/
 │   │   ├── conftest.py             # pytest fixtures: file-based SQLite + TestClient (NOT in-memory)
-│   │   ├── test_auth.py            # Registration, verification, login flows
-│   │   ├── test_properties.py      # CRUD + ownership isolation
+│   │   ├── test_auth.py            # Registration, verification, login flows; username constraint tests
+│   │   ├── test_properties.py      # CRUD + ownership isolation + URL scheme validation tests
 │   │   ├── test_analysis.py        # Analysis math unit tests + full API flow
 │   │   ├── test_market.py          # Market rate endpoint
-│   │   └── test_reports.py         # Analysis credit spend, listing, re-download, CREDIT_LIMIT enforcement
+│   │   ├── test_reports.py         # Analysis credit spend, listing, re-download, CREDIT_LIMIT enforcement
+│   │   └── test_scraper.py         # ScraperAPI header regression (L4)
 │   └── schemas/
 │       ├── report.py               # ReportOut, ReportDetailOut, ReportGenerateResponse
 └── frontend/
@@ -118,6 +119,9 @@ REI/
 - **500-user cap** enforced at verify time (403 if full) — `USER_CAP = 500` in `routes/auth.py`
 - `passlib` was removed — use `bcrypt` directly. passlib 1.7.4 is broken with bcrypt 5.x.
 - React 19: use `React.SyntheticEvent`, not `React.FormEvent` (deprecated in React 19)
+- Duplicate-username and duplicate-email at registration return the **same** error message (`"Username or email already in use."`) — do not add distinct messages; that would reintroduce M1 enumeration.
+- `username` is validated with `Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")` in `schemas/user.py`.
+- `source_url` and `property_tax_url` are validated to require `http` or `https` scheme — `javascript:` URIs are rejected at the Pydantic layer.
 
 ### Auth — Forgot password flow
 - `POST /auth/forgot-password` — takes `email`, always returns 202 (never reveals whether email is registered)
@@ -413,9 +417,19 @@ If you add another domain, append it comma-separated here and redeploy the backe
 
 ---
 
-## Security To-Dos
+## Security
 
-See `.claude/SECURITY.md` for the full list of open security findings (18 items, prioritised by severity). Critical items have been addressed; High/Medium/Low remain open.
+See `.claude/SECURITY.md` for the full list of security findings (18 items, prioritised by severity).
+**12 of 18 resolved.** 6 remain open:
+
+| ID | Finding | Priority |
+|---|---|---|
+| H2 | TOCTOU race on credit gate (`SELECT … FOR UPDATE` needed) | High |
+| H3 | Password reset does not invalidate existing JWTs | High |
+| H4 | `/auth/refresh` allows indefinite stolen-token extension | High |
+| M2 | JWT stored in `localStorage` — full XSS exposure (known design decision) | Medium |
+| L1 | `/market/rate` and `/market/mortgage-rate` unauthenticated | Low |
+| L5 | Freddie Mac fallback rate not disclosed to client | Low |
 
 ---
 
@@ -451,6 +465,9 @@ Currently SQLite is used locally and PostgreSQL in production. This was the righ
 - **Adding a new NOT NULL column without a default**: add it as nullable first, backfill values, then tighten to NOT NULL in a second migration. Doing it in one step will fail on any table that already has rows.
 - **`railway run` does not inject `DATABASE_URL` locally**: the PostgreSQL addon URL is only reachable inside Railway's network. To run Alembic or psycopg2 against production from your laptop, get `DATABASE_PUBLIC_URL` from `railway variables --service Postgres` and pass it as `DATABASE_URL=<value> alembic ...`.
 - **Required env vars at startup**: `SECRET_KEY` and `RESEND_API_KEY` must be set. The app raises `RuntimeError` on startup if either is missing — this is intentional. Set them in `.env` locally and in Railway environment variables for production.
+- **`SECRET_KEY` must be at least 32 characters**: the lifespan guard now asserts `len(SECRET_KEY) >= 32`. Generate a compliant key with: `python -c "import secrets; print(secrets.token_hex(32))"`.
+- **OpenAPI docs (`/docs`, `/redoc`, `/openapi.json`) are disabled in production**: they return 404 when `RAILWAY_ENVIRONMENT` is set. They are still served locally for development. This is intentional (L2 fix).
+- **Username constraints**: `username` must be 3–32 characters, pattern `[a-zA-Z0-9_-]`. Alphanumeric plus dash and underscore only. Enforced by Pydantic at registration (422 on violation).
 - **`DATABASE_URL` must be set in the Railway backend service**: the PostgreSQL addon variables live in the Postgres service and are NOT automatically injected into the backend service. Without it, the backend silently falls back to ephemeral SQLite and all data is wiped on every deploy. If `RAILWAY_ENVIRONMENT` is set and `DATABASE_URL` is absent, the app now raises `RuntimeError` at startup. Use the internal URL: `postgresql://postgres:<password>@postgres.railway.internal:5432/railway`.
 - **Health check verifies schema**: `GET /health` runs `SELECT 1 FROM users LIMIT 1`. A 503 means either the DB is unreachable or the schema is missing (e.g. migrations never ran). This catches a misconfigured DB before Railway routes any traffic to the service.
 - **`alembic stamp` stamps version only — it does not create tables**: running `alembic stamp head` on an empty DB records the version without executing any migration SQL. If you stamp and then deploy, Alembic will skip all stamped migrations and only run newer ones, leaving the core tables uncreated. Only stamp a DB that already has the correct schema in place.

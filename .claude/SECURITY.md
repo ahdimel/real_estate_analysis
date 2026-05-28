@@ -112,7 +112,7 @@ operator's ScraperAPI bill. No per-user or global throttle.
 
 ### M1 — Username and email enumeration at registration
 **File:** `backend/routes/auth.py:33-36`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
 Distinct error messages (`"Username already taken"` vs `"Email already registered"`) let an
 attacker enumerate valid usernames and registered emails.
@@ -132,40 +132,30 @@ tokens for all logged-in users. `HttpOnly` cookies are the standard mitigation.
 
 ### M3 — Internal error messages leak to clients
 **File:** `backend/routes/scraper.py:19`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed (addressed alongside C1)
 
-```python
-raise HTTPException(status_code=500, detail=f"Scrape failed: {str(e)}")
-```
-
-Raw exception strings are returned, potentially exposing internal paths, library versions,
-or network topology.
-
-**Fix:** Log the full exception server-side; return a generic message to the client.
+Raw exception strings were returned, potentially exposing internal paths, library versions,
+or network topology. The scraper endpoint now returns a generic message and lets exceptions
+propagate silently to logs.
 
 ---
 
 ### M4 — Empty `SECRET_KEY` produces forgeable JWTs in local dev
 **File:** `backend/security.py:10`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
-`SECRET_KEY = os.getenv("SECRET_KEY", "")` defaults to empty string. The startup check only
-fires when `RAILWAY_ENVIRONMENT` is set, so local dev with a missing `.env` runs with an
-empty signing key — anyone can forge tokens for any user ID.
-
-**Fix:** Add `SECRET_KEY` to the startup guard unconditionally (not gated on `RAILWAY_ENVIRONMENT`).
-Or assert `len(SECRET_KEY) >= 32` at startup.
+`SECRET_KEY` is now in `_REQUIRED_ENV_VARS` (checked unconditionally at startup) and
+`main.py` additionally asserts `len(SECRET_KEY) >= 32`. The app refuses to start with
+a missing or short signing key in any environment.
 
 ---
 
 ### M5 — `source_url` and `property_tax_url` lack URL validation (XSS-adjacent)
 **File:** `backend/schemas/property.py:10`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
-Both are `Optional[str]` with no format check. A `javascript:` URI would execute as XSS if
-rendered as an `href` without sanitization.
-
-**Fix:** Validate with `pydantic.AnyHttpUrl` or an `http/https` scheme check.
+Both fields now have a Pydantic `field_validator` that rejects any value whose URL scheme
+is not `http` or `https`, blocking `javascript:` and other dangerous URI schemes.
 
 ---
 
@@ -180,35 +170,28 @@ These endpoints are publicly accessible and can be polled to probe DB liveness.
 ---
 
 ### L2 — OpenAPI docs publicly accessible in production
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
-FastAPI's Swagger UI (`/docs`) and OpenAPI schema (`/openapi.json`) are enabled in production
-with no authentication gate.
-
-**Fix:** Add `docs_url=None, redoc_url=None, openapi_url=None` to `FastAPI()` in production,
-or gate via an env flag.
+`docs_url`, `redoc_url`, and `openapi_url` are set to `None` when `RAILWAY_ENVIRONMENT`
+is set. Swagger UI and OpenAPI schema are only served in local development.
 
 ---
 
 ### L3 — Username has no length or character constraints
 **File:** `backend/schemas/user.py:5`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
-`username: str` — no `max_length`, no character allowlist. Could cause rendering issues
-or DB index bloat with very long inputs.
-
-**Fix:** `username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")`
+`username` now has `Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")`.
+Rejects empty, very long, and non-alphanumeric usernames at the Pydantic layer.
 
 ---
 
 ### L4 — ScraperAPI key passed as a URL query parameter
 **File:** `backend/scraper/zillow.py:55-58`
-**Status:** 🔴 Open
+**Status:** ✅ Fixed
 
-The API key appears in the request URL and will be captured by proxy logs, Railway request
-logs, and ScraperAPI's own access logs.
-
-**Fix:** Pass as `Authorization: Bearer` header or `X-API-Key` header instead.
+The API key is now passed as an `X-Api-Key` request header instead of a URL query
+parameter, keeping it out of proxy logs and Railway access logs.
 
 ---
 
@@ -233,3 +216,10 @@ warn the user when fallback data is in use.
 | C3 | Verify code brute-force | 2026-05-28 |
 | H1 | Login brute force | 2026-05-28 |
 | H5 | Scraper cost amplification | 2026-05-28 |
+| M1 | Username/email enumeration at registration | 2026-05-28 |
+| M3 | Internal exception strings leaked to clients | 2026-05-28 |
+| M4 | Empty SECRET_KEY allowed in local dev | 2026-05-28 |
+| M5 | javascript: URIs accepted in URL fields | 2026-05-28 |
+| L2 | OpenAPI docs public in production | 2026-05-28 |
+| L3 | Username with no length/character constraints | 2026-05-28 |
+| L4 | ScraperAPI key exposed in URL query param | 2026-05-28 |

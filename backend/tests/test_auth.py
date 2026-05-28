@@ -160,3 +160,46 @@ def test_refresh_with_invalid_token_rejected(client):
 def test_refresh_without_token_rejected(client):
     res = client.post(REFRESH_URL)
     assert res.status_code in (401, 403)
+
+
+# ── M1 — enumeration regression ───────────────────────────────────────────────
+
+def test_duplicate_credentials_return_same_message(client, get_code):
+    """Duplicate username and duplicate email must return the identical detail string (prevents enumeration)."""
+    _register_and_verify(client, get_code)
+    res_username = client.post(REGISTER_URL, json={**TEST_USER, "email": "other@example.com"})
+    res_email = client.post(REGISTER_URL, json={**TEST_USER, "username": "bob"})
+    assert res_username.status_code == 400
+    assert res_email.status_code == 400
+    assert res_username.json()["detail"] == res_email.json()["detail"]
+
+
+# ── L3 — username constraints ─────────────────────────────────────────────────
+
+def test_username_too_short_rejected(client):
+    res = client.post(REGISTER_URL, json={**TEST_USER, "username": "ab"})
+    assert res.status_code == 422
+
+
+def test_username_too_long_rejected(client):
+    res = client.post(REGISTER_URL, json={**TEST_USER, "username": "a" * 33})
+    assert res.status_code == 422
+
+
+def test_username_invalid_chars_rejected(client):
+    for bad in ("alice user", "alice$bob", "alice@bob", "alice.bob"):
+        res = client.post(REGISTER_URL, json={**TEST_USER, "username": bad})
+        assert res.status_code == 422, f"Expected 422 for username={bad!r}"
+
+
+def test_username_valid_edge_cases_accepted(client):
+    for username in ("abc", "alice_123", "alice-bob"):
+        user = {**TEST_USER, "username": username, "email": f"{username}@example.com"}
+        res = client.post(REGISTER_URL, json=user)
+        assert res.status_code == 202, f"Expected 202 for username={username!r}"
+
+
+def test_username_max_length_accepted(client):
+    username = "a" * 32
+    res = client.post(REGISTER_URL, json={**TEST_USER, "username": username, "email": "long@example.com"})
+    assert res.status_code == 202

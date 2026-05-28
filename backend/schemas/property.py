@@ -1,7 +1,8 @@
 from decimal import Decimal
 from datetime import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, model_validator
+from urllib.parse import urlparse
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PropertyCreate(BaseModel):
@@ -45,6 +46,15 @@ class PropertyCreate(BaseModel):
     property_tax_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
     insurance_increase_pct: Decimal = Field(ge=Decimal("0.0"), le=Decimal("100.0"))
     market_cagr_pct: Decimal = Field(default=Decimal("8.5"), ge=Decimal("0.0"), le=Decimal("100.0"))
+
+    @field_validator("source_url", "property_tax_url", mode="before")
+    @classmethod
+    def validate_url_scheme(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            scheme = urlparse(str(v)).scheme
+            if scheme not in ("http", "https"):
+                raise ValueError("URL must use http or https scheme.")
+        return v
 
     @model_validator(mode="after")
     def validate_cross_fields(self):

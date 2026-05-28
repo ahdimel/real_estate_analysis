@@ -54,7 +54,8 @@ def scrape_zillow(url: str) -> dict:
         # Production: route through ScraperAPI residential proxies
         r = std_requests.get(
             "https://api.scraperapi.com",
-            params={"api_key": SCRAPER_API_KEY, "url": url},
+            params={"url": url},
+            headers={"X-Api-Key": SCRAPER_API_KEY},
             timeout=60,
         )
     else:

@@ -159,3 +159,29 @@ def test_invalid_property_type_rejected(client, auth_token, valid_property):
 def test_invalid_garage_value_rejected(client, auth_token, valid_property):
     res = client.post(PROPS_URL, json={**valid_property, "garage": "5"}, headers=auth_headers(auth_token))
     assert res.status_code == 422
+
+
+# ── M5 — URL scheme validation ────────────────────────────────────────────────
+
+import pytest
+
+@pytest.mark.parametrize("field", ["source_url", "property_tax_url"])
+def test_javascript_uri_in_url_field_rejected(client, auth_token, valid_property, field):
+    res = client.post(PROPS_URL, json={**valid_property, field: "javascript:alert(1)"}, headers=auth_headers(auth_token))
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize("field", ["source_url", "property_tax_url"])
+def test_non_http_scheme_in_url_field_rejected(client, auth_token, valid_property, field):
+    res = client.post(PROPS_URL, json={**valid_property, field: "ftp://example.com/taxes"}, headers=auth_headers(auth_token))
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize("field,url", [
+    ("source_url", "https://www.zillow.com/homedetails/test/"),
+    ("source_url", "http://example.com/listing"),
+    ("property_tax_url", "https://county.gov/property-tax/123"),
+])
+def test_valid_http_url_in_url_field_accepted(client, auth_token, valid_property, field, url):
+    res = client.post(PROPS_URL, json={**valid_property, field: url}, headers=auth_headers(auth_token))
+    assert res.status_code == 201

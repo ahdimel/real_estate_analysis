@@ -30,11 +30,12 @@ def _generate_code() -> str:
 @router.post("/register", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("5/minute")
 def register(request: Request, payload: UserRegister, db: Session = Depends(get_db)):
-    # Check against verified users
-    if db.query(User).filter(User.username == payload.username).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
-    if db.query(User).filter(User.email == payload.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    # Check against verified users — single generic message to prevent enumeration
+    if (
+        db.query(User).filter(User.username == payload.username).first()
+        or db.query(User).filter(User.email == payload.email).first()
+    ):
+        raise HTTPException(status_code=400, detail="Username or email already in use.")
 
     # Cooldown: prevent spamming the same email
     existing = db.query(EmailVerification).filter(EmailVerification.email == payload.email).first()

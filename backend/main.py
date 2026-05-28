@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # is a silent failure mode (empty SECRET_KEY produces forgeable JWTs; missing
 # RESEND_API_KEY causes every registration to 500).
 _REQUIRED_ENV_VARS = ["SECRET_KEY", "RESEND_API_KEY"]
+_IS_PRODUCTION = bool(os.getenv("RAILWAY_ENVIRONMENT"))
 
 
 @asynccontextmanager
@@ -29,6 +30,8 @@ async def lifespan(_app: FastAPI):
             f"Required environment variables are not set: {', '.join(missing)}. "
             "Set them in .env (local) or Railway environment variables (prod)."
         )
+    if len(os.getenv("SECRET_KEY", "")) < 32:
+        raise RuntimeError("SECRET_KEY must be at least 32 characters. Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"")
     # In production (PostgreSQL), DATABASE_URL must be explicitly set.
     # Absence means the app would silently fall back to ephemeral SQLite and
     # lose all data on every deploy.
@@ -45,7 +48,14 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="REIA API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="REIA API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None if _IS_PRODUCTION else "/docs",
+    redoc_url=None if _IS_PRODUCTION else "/redoc",
+    openapi_url=None if _IS_PRODUCTION else "/openapi.json",
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

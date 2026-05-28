@@ -15,6 +15,20 @@ The shell may inherit a different project's venv (e.g. visual_dna). Always use t
 
 Never rely on `python`, `python3`, or `uvicorn` from PATH — they will point to the wrong environment.
 
+## Critical: `.env` requirements
+
+The backend refuses to start if either required env var is missing or `SECRET_KEY` is under 32 characters.
+Your `.env` (at the repo root) must have:
+```
+SECRET_KEY=<at least 32 characters>
+RESEND_API_KEY=re_...
+```
+Generate a compliant key if you don't have one:
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+If the backend log shows `RuntimeError: SECRET_KEY must be at least 32 characters`, this is why.
+
 ## Start
 
 Run from the repo root `/Users/ahdimel/Documents/vscode/REI`.
