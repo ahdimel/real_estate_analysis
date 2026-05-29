@@ -61,8 +61,25 @@ interface AnalysisData {
 interface PropertyData {
   purchase_price: number;
   annual_interest_rate: number;
+  mortgage_term: number;
+  down_payment: number;
+  closing_costs: number;
+  initial_repairs: number | null;
+  pmi_monthly: number | null;
   rent_lower: number;
   rent_upper: number;
+  property_tax_annual: number;
+  hoa_annual: number | null;
+  property_management_annual: number;
+  vacancy_days_annual: number;
+  maintenance_annual: number;
+  insurance_annual: number;
+  rent_increase_pct: number;
+  maintenance_increase_pct: number;
+  appreciation_rate_pct: number;
+  property_tax_increase_pct: number;
+  insurance_increase_pct: number;
+  market_cagr_pct: number;
   [key: string]: unknown;
 }
 
@@ -378,17 +395,25 @@ export default function AnalysisPage() {
 
   const atCreditLimit = creditCount !== null && creditCount.remaining <= 0;
 
-  // Detect if current property inputs differ from the most recent analysis snapshot
+  // All fields that feed into analyse_rental() — changing any of these warrants a re-run.
+  const ANALYSIS_FIELDS: (keyof PropertyData)[] = [
+    "purchase_price", "annual_interest_rate", "mortgage_term", "down_payment",
+    "closing_costs", "initial_repairs", "pmi_monthly", "rent_lower", "rent_upper",
+    "property_tax_annual", "hoa_annual", "property_management_annual",
+    "vacancy_days_annual", "maintenance_annual", "insurance_annual",
+    "rent_increase_pct", "maintenance_increase_pct", "appreciation_rate_pct",
+    "property_tax_increase_pct", "insurance_increase_pct", "market_cagr_pct",
+  ];
+
+  // Detect if current property inputs differ from the most recent analysis snapshot.
   const paramsChanged = currentSnapshot && property && (() => {
     const sp = currentSnapshot.snapshot?.property;
     if (!sp) return false;
-    return (
-      sp.purchase_price !== property.purchase_price ||
-      sp.annual_interest_rate !== property.annual_interest_rate ||
-      sp.rent_lower !== property.rent_lower ||
-      sp.rent_upper !== property.rent_upper
-    );
+    return ANALYSIS_FIELDS.some((k) => sp[k] !== property[k]);
   })();
+
+  // True when an analysis exists and no financially-relevant inputs have changed.
+  const inputsUnchanged = !!currentSnapshot && paramsChanged === false;
 
   const noAnalysisYet = !loadingAnalysis && !data;
 
@@ -442,13 +467,15 @@ export default function AnalysisPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={handleRunAnalysis}
-                disabled={running || atCreditLimit}
+                disabled={running || atCreditLimit || inputsUnchanged}
                 className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
               >
                 {running
                   ? "Running…"
                   : atCreditLimit
                   ? "No credits remaining"
+                  : inputsUnchanged
+                  ? "Analysis up to date"
                   : noAnalysisYet
                   ? `Run Analysis — 1 credit (${creditCount?.remaining ?? "…"} remaining)`
                   : `Re-run Analysis — 1 credit (${creditCount?.remaining ?? "…"} remaining)`}
@@ -466,6 +493,9 @@ export default function AnalysisPage() {
 
               {atCreditLimit && (
                 <p className="text-xs text-zinc-500">Lifetime limit of {creditCount?.limit} reached.</p>
+              )}
+              {inputsUnchanged && !atCreditLimit && (
+                <p className="text-xs text-zinc-500">Edit the property inputs to enable a re-run.</p>
               )}
             </div>
 

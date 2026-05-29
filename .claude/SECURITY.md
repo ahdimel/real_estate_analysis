@@ -198,10 +198,12 @@ Rejects empty, very long, and non-alphanumeric usernames at the Pydantic layer.
 
 ### L4 — ScraperAPI key passed as a URL query parameter
 **File:** `backend/scraper/zillow.py:55-58`
-**Status:** ✅ Fixed
+**Status:** 🔴 Open (header auth reverted — ScraperAPI proxy endpoint does not support it)
 
-The API key is now passed as an `X-Api-Key` request header instead of a URL query
-parameter, keeping it out of proxy logs and Railway access logs.
+ScraperAPI's proxy endpoint only accepts `api_key` as a query parameter. A prior fix
+attempted to move it to an `X-Api-Key` header, but that caused ScraperAPI to return 404
+for all requests, breaking the scraper in production. Reverted to query param. The key
+appears in Railway's internal request logs but is not exposed to end users.
 
 ---
 
@@ -235,6 +237,6 @@ appends a note to the rate hint shown below the interest rate field.
 | M5 | javascript: URIs accepted in URL fields | 2026-05-28 |
 | L2 | OpenAPI docs public in production | 2026-05-28 |
 | L3 | Username with no length/character constraints | 2026-05-28 |
-| L4 | ScraperAPI key exposed in URL query param | 2026-05-28 |
+| L4 | ScraperAPI key exposed in URL query param | reverted — header auth not supported by ScraperAPI |
 | L1 | Market endpoints unauthenticated | 2026-05-28 |
 | L5 | Freddie Mac fallback rate not disclosed to client | 2026-05-28 |

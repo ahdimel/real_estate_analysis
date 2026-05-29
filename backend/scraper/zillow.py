@@ -52,10 +52,10 @@ def scrape_zillow(url: str) -> dict:
     """
     if SCRAPER_API_KEY:
         # Production: route through ScraperAPI residential proxies
+        # ScraperAPI's proxy endpoint only accepts api_key as a query param — header auth is not supported
         r = std_requests.get(
             "https://api.scraperapi.com",
-            params={"url": url},
-            headers={"X-Api-Key": SCRAPER_API_KEY},
+            params={"api_key": SCRAPER_API_KEY, "url": url},
             timeout=60,
         )
     else:
